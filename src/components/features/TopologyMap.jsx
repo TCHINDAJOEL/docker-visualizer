@@ -1,0 +1,56 @@
+import React from 'react';
+import { Network, Box } from 'lucide-react';
+
+const TopologyMap = ({ networks, containers, selectedItem, setSelectedItem, setShowInspector, mode }) => {
+    return (
+        <div className="relative h-full w-full bg-slate-900 overflow-hidden flex flex-wrap content-start p-8 gap-8 overflow-y-auto">
+            {networks.map(net => {
+                const netContainers = containers.filter(c => c.network === net.name);
+                return (
+                    <div key={net.id} className="border border-slate-700 rounded-xl bg-slate-800/30 p-4 min-w-[300px] min-h-[200px] relative group transition-all hover:border-blue-500/50">
+                        <div className="absolute -top-3 left-4 px-2 bg-slate-900 text-blue-400 text-xs font-mono border border-slate-700 rounded flex items-center gap-2">
+                            <div className="flex items-center gap-1">
+                                <Network size={12} />
+                                <span>{net.name} ({net.driver})</span>
+                            </div>
+                        </div>
+                        <div className="mt-2 text-xs text-slate-500 font-mono mb-4">{net.subnet}</div>
+
+                        <div className="flex flex-wrap gap-4">
+                            {netContainers.length === 0 && (
+                                <div className="w-full h-24 flex items-center justify-center text-slate-600 text-xs italic border-2 border-dashed border-slate-800 rounded">
+                                    Réseau vide
+                                </div>
+                            )}
+                            {netContainers.map(c => (
+                                <div
+                                    key={c.id}
+                                    onClick={() => { setSelectedItem(c.id); setShowInspector(true); }}
+                                    className={`w-24 h-24 rounded-lg border-2 cursor-pointer transition-all relative flex flex-col items-center justify-center gap-2
+                                  ${selectedItem === c.id ? 'ring-2 ring-blue-400 ring-offset-2 ring-offset-slate-900' : ''}
+                                  ${c.status === 'running' ? 'bg-green-900/20 border-green-600/50 hover:bg-green-900/40' : 'bg-red-900/20 border-red-600/50 hover:bg-red-900/40'}
+                              `}
+                                >
+                                    <div className={`absolute top-2 right-2 w-2 h-2 rounded-full ${c.status === 'running' ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                                    <Box size={24} className={c.status === 'running' ? 'text-green-400' : 'text-red-400'} />
+                                    <div className="text-[10px] font-bold text-slate-300 truncate w-full text-center px-1">{c.name}</div>
+                                    <div className="text-[9px] text-slate-500 font-mono">{c.image}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )
+            })}
+            {mode === 'beginner' && containers.length === 0 && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="bg-blue-600/90 text-white p-6 rounded-xl shadow-2xl max-w-md text-center">
+                        <h3 className="text-lg font-bold mb-2">👋 Bienvenue sur le Docker Lab</h3>
+                        <p className="text-sm opacity-90">Votre environnement est vide. Utilisez le terminal en bas ou choisissez un scénario à gauche pour démarrer votre premier conteneur.</p>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default TopologyMap;
