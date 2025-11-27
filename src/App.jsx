@@ -4,6 +4,7 @@ import Sidebar from './components/layout/Sidebar';
 import TopologyMap from './components/features/TopologyMap';
 import InspectorPanel from './components/features/InspectorPanel';
 import Terminal from './components/features/Terminal';
+import HostView from './components/features/HostView';
 import { MOCK_IMAGES } from './data/mockData';
 import { generateId } from './utils/helpers';
 
@@ -23,6 +24,65 @@ const App = () => {
   const [images, setImages] = useState(MOCK_IMAGES);
   const [timeline, setTimeline] = useState([]); // Historique des événements
 
+  // Host Info State
+  const [hostInfo, setHostInfo] = useState({
+    clientVersion: '24.0.5',
+    serverVersion: '24.0.5',
+    api: '1.43',
+    goVersion: 'go1.20.6',
+    os: 'Docker Desktop',
+    arch: 'amd64',
+    storageDriver: 'overlay2',
+    rootDir: '/var/lib/docker',
+    networkDrivers: ['bridge', 'host', 'ipvlan', 'macvlan', 'null', 'overlay'],
+    cpus: 4,
+    memory: '7.65 GiB',
+    kernel: '5.15.90.1-microsoft-standard-WSL2',
+    daemonOptions: {
+      debug: false,
+      experimental: false,
+      logDriver: 'json-file',
+      cgroupDriver: 'cgroupfs',
+      liveRestore: true,
+      hosts: ['unix:///var/run/docker.sock']
+    },
+    security: {
+      appArmor: 'enabled',
+      seLinux: 'disabled',
+      rootless: false
+    }
+  });
+
+  const handlePrune = () => {
+    // Remove stopped containers
+    const stoppedContainers = containers.filter(c => c.status !== 'running');
+    const runningContainers = containers.filter(c => c.status === 'running');
+
+    if (stoppedContainers.length > 0) {
+      setContainers(runningContainers);
+      addTimelineEvent('delete', `Pruned ${stoppedContainers.length} stopped containers`);
+    }
+
+    // Remove unused images (mock logic: remove images not used by running containers)
+    // For simplicity in this mock, we just say we pruned images without actually removing them from MOCK_IMAGES unless we track usage
+    addTimelineEvent('delete', 'Pruned dangling images and build cache');
+
+    setHistory(prev => [...prev, { type: 'info', content: 'Deleted: 0B' }]); // Mock output
+  };
+
+  const handleSecurityCheck = () => {
+    addTimelineEvent('info', 'Security audit started...');
+    setTimeout(() => {
+      addTimelineEvent('success', 'Security audit completed: No critical issues found.');
+      setHistory(prev => [...prev,
+      { type: 'info', content: 'Security Check Results:' },
+      { type: 'info', content: '[PASS] AppArmor enabled' },
+      { type: 'info', content: '[WARN] Rootless mode disabled' },
+      { type: 'info', content: '[PASS] No insecure registries' }
+      ]);
+    }, 1000);
+  };
+
   // État Terminal
   const [history, setHistory] = useState([
     { type: 'info', content: 'Docker Engine v20.10.17 initialized...' },
@@ -37,8 +97,10 @@ const App = () => {
   // --- Moteur de Simulation (Effets) ---
 
   // Simulation des ressources en temps réel
+  // Simulation des ressources en temps réel
   useEffect(() => {
     const interval = setInterval(() => {
+      // Update Container Stats
       setContainers(prev => prev.map(c => {
         if (c.status !== 'running') return c;
         // Simuler des variations CPU/RAM
@@ -55,6 +117,14 @@ const App = () => {
           stats: { cpu: newCpu, mem: newMem, cpuHistory, memHistory }
         };
       }));
+
+      // Update Host Stats
+      setHostInfo(prev => ({
+        ...prev,
+        cpuLoad: Math.max(0, Math.min(100, (prev.cpuLoad || 10) + (Math.random() * 5 - 2.5))),
+        memLoad: Math.max(0, Math.min(100, (prev.memLoad || 40) + (Math.random() * 5 - 2.5)))
+      }));
+
     }, 2000);
     return () => clearInterval(interval);
   }, []);
@@ -222,32 +292,44 @@ const App = () => {
 
         {/* 3. Zone Centrale : Visualisation Graphique */}
         <div className="flex-1 flex flex-col relative bg-slate-950">
-          {/* Toolbar du haut de la carte */}
-          <div className="h-10 border-b border-slate-800 bg-slate-900/50 flex items-center justify-between px-4">
-            <div className="text-xs text-slate-400 flex items-center gap-2">
-              <span className="font-bold text-slate-200">Vue Topologique</span>
-              <span className="bg-slate-800 px-1.5 rounded text-[10px]">Live</span>
+          {activeView === 'host' ? (
+            <div className="flex-1 relative overflow-hidden">
+              <HostView
+                hostInfo={hostInfo}
+                onPrune={handlePrune}
+                onSecurityCheck={handleSecurityCheck}
+              />
             </div>
-            <div className="flex gap-2">
-              {['2D Map', 'List', 'YAML'].map(view => (
-                <button key={view} className="text-[10px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition-colors">
-                  {view}
-                </button>
-              ))}
-            </div>
-          </div>
+          ) : (
+            <>
+              {/* Toolbar du haut de la carte */}
+              <div className="h-10 border-b border-slate-800 bg-slate-900/50 flex items-center justify-between px-4">
+                <div className="text-xs text-slate-400 flex items-center gap-2">
+                  <span className="font-bold text-slate-200">Vue Topologique</span>
+                  <span className="bg-slate-800 px-1.5 rounded text-[10px]">Live</span>
+                </div>
+                <div className="flex gap-2">
+                  {['2D Map', 'List', 'YAML'].map(view => (
+                    <button key={view} className="text-[10px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition-colors">
+                      {view}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-          {/* La Carte Interactive */}
-          <div className="flex-1 relative overflow-hidden">
-            <TopologyMap
-              networks={networks}
-              containers={containers}
-              selectedItem={selectedItem}
-              setSelectedItem={setSelectedItem}
-              setShowInspector={setShowInspector}
-              mode={mode}
-            />
-          </div>
+              {/* La Carte Interactive */}
+              <div className="flex-1 relative overflow-hidden">
+                <TopologyMap
+                  networks={networks}
+                  containers={containers}
+                  selectedItem={selectedItem}
+                  setSelectedItem={setSelectedItem}
+                  setShowInspector={setShowInspector}
+                  mode={mode}
+                />
+              </div>
+            </>
+          )}
 
           {/* 4. Zone Basse : Console / Terminal */}
           <Terminal

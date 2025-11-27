@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layout, Box, Layers, Network, Database, Activity } from 'lucide-react';
+import { Layout, Box, Layers, Network, Database, Activity, Server } from 'lucide-react';
 import { SCENARIOS } from '../../data/mockData';
 
 const BookIcon = () => (
@@ -20,6 +20,7 @@ const Sidebar = ({
             <div className="p-3 space-y-1">
                 {[
                     { id: 'dashboard', icon: Layout, label: 'Dashboard' },
+                    { id: 'host', icon: Server, label: 'Host / Engine' },
                     { id: 'containers', icon: Box, label: 'Containers', count: containers.length },
                     { id: 'images', icon: Layers, label: 'Images', count: images.length },
                     { id: 'networks', icon: Network, label: 'Networks', count: networks.length },
