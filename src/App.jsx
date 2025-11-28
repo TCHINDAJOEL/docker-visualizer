@@ -162,7 +162,8 @@ const App = () => {
     security: {
       appArmor: 'enabled',
       seLinux: 'disabled',
-      rootless: false
+      rootless: false,
+      apiExposed: false // Mock API exposure
     }
   });
 
@@ -188,21 +189,110 @@ const App = () => {
     handlePruneVolumes();
   };
 
-  const handleSecurityCheck = () => {
-    addTimelineEvent('info', 'Security audit started...');
-    setHistory(prev => [...prev,
-    { type: 'info', content: '🔒 Running security audit...' }
-    ]);
+  const handleSecurityAudit = () => {
+    addTimelineEvent('info', 'Running comprehensive security audit...');
+    setHistory(prev => [...prev, { type: 'info', content: '🔒 Starting Security Audit...' }]);
 
     setTimeout(() => {
-      addTimelineEvent('success', 'Security audit completed: No critical issues found.');
+      const findings = [];
+
+      // 1. Host Checks
+      if (hostInfo.security.rootless === false) {
+        findings.push({
+          id: 'host-rootless',
+          level: 'medium',
+          category: 'Host',
+          title: 'Docker Daemon running as Root',
+          description: 'The Docker daemon is running with root privileges. If compromised, it can give full access to the host.',
+          fix: 'Consider running Docker in Rootless mode to mitigate privilege escalation risks.'
+        });
+      }
+      if (hostInfo.security.apiExposed) {
+        findings.push({
+          id: 'host-api',
+          level: 'high',
+          category: 'Host',
+          title: 'Docker API Exposed',
+          description: 'The Docker API port (2375/2376) appears to be exposed without TLS.',
+          fix: 'Secure the API with TLS or bind it only to localhost.'
+        });
+      }
+
+      // 2. Container Checks
+      containers.forEach(c => {
+        // Check for Root User
+        if (c.security?.user === 'root' || !c.security?.user) {
+          findings.push({
+            id: `cont-root-${c.id}`,
+            level: 'high',
+            category: 'Container',
+            target: c.name,
+            title: 'Running as Root',
+            description: `Container ${c.name} is running as root user (UID 0).`,
+            fix: 'Add `USER <uid>` instruction in Dockerfile to run as non-privileged user.'
+          });
+        }
+
+        // Check for Privileged Mode
+        if (c.security?.privileged) {
+          findings.push({
+            id: `cont-priv-${c.id}`,
+            level: 'critical',
+            category: 'Container',
+            target: c.name,
+            title: 'Privileged Mode Enabled',
+            description: `Container ${c.name} is running in privileged mode, giving it full access to host devices.`,
+            fix: 'Avoid `--privileged`. Use `--cap-add` to grant only necessary capabilities.'
+          });
+        }
+
+        // Check for Sensitive Mounts
+        const sensitivePaths = ['/var/run/docker.sock', '/', '/etc'];
+        c.mounts?.forEach(m => {
+          if (sensitivePaths.some(p => m.source.startsWith(p))) {
+            findings.push({
+              id: `cont-mount-${c.id}-${m.source}`,
+              level: 'high',
+              category: 'Container',
+              target: c.name,
+              title: 'Sensitive Host Mount',
+              description: `Container mounts sensitive host path: ${m.source}`,
+              fix: 'Avoid mounting host system directories. Use named volumes or specific data directories.'
+            });
+          }
+        });
+
+        // Check for Resource Limits (Mock check)
+        if (!c.stats.limitCpu && !c.stats.limitMem) {
+          findings.push({
+            id: `cont-limits-${c.id}`,
+            level: 'low',
+            category: 'Container',
+            target: c.name,
+            title: 'No Resource Limits',
+            description: `Container ${c.name} has no CPU or Memory limits defined.`,
+            fix: 'Set `--memory` and `--cpus` limits to prevent DoS.'
+          });
+        }
+      });
+
+      setSecurityReport({
+        date: new Date().toISOString(),
+        score: Math.max(0, 100 - (findings.length * 10)),
+        findings
+      });
+
+      addTimelineEvent('success', `Security audit completed. Found ${findings.length} issues.`);
       setHistory(prev => [...prev,
-      { type: 'info', content: 'Security Check Results:' },
-      { type: 'info', content: '[PASS] AppArmor enabled' },
-      { type: 'info', content: '[WARN] Rootless mode disabled' },
-      { type: 'info', content: '[PASS] No insecure registries' }
+      { type: 'success', content: `Audit Complete. Score: ${Math.max(0, 100 - (findings.length * 10))}/100` },
+      { type: 'info', content: `Found ${findings.length} issues. Check Security tab for details.` }
       ]);
-    }, 1000);
+    }, 1500);
+  };
+
+  // Old simple check replaced by above
+  const handleSecurityCheck = () => { // Renamed from handleSecurityCheck to handleSimpleSecurityCheck as per instruction's diff
+    handleSecurityAudit();
   };
 
   // --- Image Management Handlers ---
@@ -384,7 +474,13 @@ const App = () => {
       networks: [formData.network], // Changed to array
       created: new Date(),
       stats: { cpu: 0, mem: 0, cpuHistory: new Array(20).fill(0), memHistory: new Array(20).fill(0) },
-      health: { status: 'healthy', lastCheck: new Date() }, // Add health
+      health: { status: 'healthy', lastCheck: new Date() },
+      security: {
+        user: 'root', // Default to root for demo purposes
+        privileged: false,
+        capabilities: ['CHOWN', 'DAC_OVERRIDE', 'FOWNER', 'MKNOD', 'NET_RAW', 'SETGID', 'SETUID', 'SETFCAP', 'SETPCAP', 'NET_BIND_SERVICE', 'SYS_CHROOT', 'KILL', 'AUDIT_WRITE'],
+        readOnlyRootfs: false
+      },
       env: formData.env.filter(e => e.key).map(e => `${e.key}=${e.value}`),
       ports: formData.ports.filter(p => p.host).map(p => `${p.host}:${p.container}`),
       mounts: formData.mounts || [], // Add mounts
@@ -883,7 +979,8 @@ const App = () => {
               <HostView
                 hostInfo={hostInfo}
                 onPrune={handlePrune}
-                onSecurityCheck={handleSecurityCheck}
+                onSecurityCheck={handleSecurityAudit}
+                securityReport={securityReport}
               />
             </div>
           ) : activeView === 'containers' ? (

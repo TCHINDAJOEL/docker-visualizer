@@ -228,6 +228,38 @@ const InspectorPanel = ({ selectedItem, containers, volumes, setShowInspector, e
                                 )) || <span className="text-slate-600 italic">No volumes mounted</span>}
                             </div>
                         </div>
+
+                        <div>
+                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Security Context</h3>
+                            <div className="bg-slate-900 rounded border border-slate-700 p-2 text-xs font-mono space-y-2">
+                                <div className="flex justify-between">
+                                    <span className="text-slate-500">User:</span>
+                                    <span className={container.security?.user === 'root' ? 'text-red-400 font-bold' : 'text-green-400'}>
+                                        {container.security?.user || 'root'}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-slate-500">Privileged:</span>
+                                    <span className={container.security?.privileged ? 'text-red-400 font-bold' : 'text-slate-300'}>
+                                        {container.security?.privileged ? 'TRUE' : 'false'}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-slate-500">Read-Only Root:</span>
+                                    <span className={container.security?.readOnlyRootfs ? 'text-green-400' : 'text-slate-300'}>
+                                        {container.security?.readOnlyRootfs ? 'true' : 'false'}
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="text-slate-500 block mb-1">Capabilities:</span>
+                                    <div className="flex flex-wrap gap-1">
+                                        {container.security?.capabilities?.map(cap => (
+                                            <span key={cap} className="px-1 py-0.5 bg-slate-800 rounded text-[10px] text-slate-400">{cap}</span>
+                                        )) || <span className="text-slate-600 italic">Default</span>}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 )}
 
