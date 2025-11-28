@@ -14,14 +14,16 @@ import NetworksView from './components/features/NetworksView';
 import VolumesView from './components/features/VolumesView';
 import MonitoringView from './components/features/MonitoringView';
 import StacksView from './components/features/StacksView';
+import ScenariosView from './components/features/ScenariosView';
 import { MOCK_IMAGES } from './data/mockData';
+import { SCENARIOS } from './data/scenarios';
 import { generateId } from './utils/helpers';
 import { parseComposeFile } from './utils/yamlParser';
 
 const App = () => {
   // --- État Global ---
   const [mode, setMode] = useState('beginner'); // 'beginner' | 'expert'
-  const [activeView, setActiveView] = useState('dashboard'); // 'dashboard', 'containers', 'images', 'networks', 'monitoring', 'stacks'
+  const [activeView, setActiveView] = useState('dashboard'); // 'dashboard', 'containers', 'images', 'networks', 'monitoring', 'stacks', 'scenarios'
   const [selectedItem, setSelectedItem] = useState(null); // ID de l'élément inspecté
   const [showInspector, setShowInspector] = useState(true);
 
@@ -44,6 +46,7 @@ const App = () => {
     }
   ]);
   const [timeline, setTimeline] = useState([]); // Historique des événements
+  const [securityReport, setSecurityReport] = useState(null); // Rapport d'audit
 
   // ... (Host Info State omitted for brevity, keep existing)
 
@@ -401,6 +404,44 @@ const App = () => {
   // État Scénario
   const [activeScenario, setActiveScenario] = useState(null);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [validationState, setValidationState] = useState(false);
+
+  // Scenario Logic
+  const handleStartScenario = (scenarioId) => {
+    const scenario = SCENARIOS.find(s => s.id === scenarioId);
+    if (scenario) {
+      setActiveScenario(scenario);
+      setCurrentStepIndex(0);
+      setValidationState(false);
+    }
+  };
+
+  const handleNextStep = () => {
+    if (activeScenario && currentStepIndex < activeScenario.steps.length - 1) {
+      setCurrentStepIndex(prev => prev + 1);
+      setValidationState(false);
+    } else {
+      // Finish
+      addTimelineEvent('success', `Scenario "${activeScenario.title}" completed!`);
+      setHistory(prev => [...prev, { type: 'success', content: `Scenario "${activeScenario.title}" completed!` }]);
+      setActiveScenario(null);
+      setCurrentStepIndex(0);
+      setValidationState(false);
+    }
+  };
+
+  // Scenario Validation Effect
+  useEffect(() => {
+    if (activeScenario) {
+      const step = activeScenario.steps[currentStepIndex];
+      if (step && step.validation) {
+        const isValid = step.validation({ containers, networks, volumes, stacks });
+        if (isValid !== validationState) {
+          setValidationState(isValid);
+        }
+      }
+    }
+  }, [containers, networks, volumes, stacks, activeScenario, currentStepIndex, validationState]);
 
   // --- Moteur de Simulation (Effets) ---
 
@@ -1038,6 +1079,17 @@ const App = () => {
                 onStop={handleStopStack}
                 onRemove={handleRemoveStack}
                 onCreate={handleCreateStack}
+              />
+            </div>
+          ) : activeView === 'scenarios' ? (
+            <div className="flex-1 relative overflow-hidden">
+              <ScenariosView
+                scenarios={SCENARIOS}
+                activeScenario={activeScenario}
+                onStartScenario={handleStartScenario}
+                onNextStep={handleNextStep}
+                currentStepIndex={currentStepIndex}
+                validationState={validationState}
               />
             </div>
           ) : (

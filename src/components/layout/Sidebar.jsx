@@ -27,6 +27,7 @@ const Sidebar = ({
                     { id: 'volumes', icon: Database, label: 'Volumes', count: 0 },
                     { id: 'monitoring', icon: Activity, label: 'Monitoring' },
                     { id: 'stacks', icon: Layers, label: 'Stacks', count: 1 },
+                    { id: 'scenarios', icon: BookIcon, label: 'Scenarios', count: SCENARIOS.length },
                 ].map(item => (
                     <button
                         key={item.id}
@@ -34,62 +35,13 @@ const Sidebar = ({
                         className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${activeView === item.id ? 'bg-blue-900/30 text-blue-300' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`}
                     >
                         <div className="flex items-center gap-3">
-                            <item.icon size={16} />
+                            {item.id === 'scenarios' ? <BookIcon /> : <item.icon size={16} />}
                             {item.label}
                         </div>
                         {item.count !== undefined && <span className="bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded text-[10px]">{item.count}</span>}
                     </button>
                 ))}
             </div>
-
-            {/* Zone Scénarios (Mode Débutant) */}
-            {mode === 'beginner' && (
-                <div className="mt-6 px-3 flex-1 overflow-y-auto">
-                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 px-2 flex items-center gap-2">
-                        <BookIcon /> Scénarios d'apprentissage
-                    </h3>
-                    <div className="space-y-3">
-                        {SCENARIOS.map(sc => (
-                            <div
-                                key={sc.id}
-                                onClick={() => { setActiveScenario(sc); setCurrentStepIndex(0); }}
-                                className={`border rounded-lg p-3 cursor-pointer transition-all ${activeScenario?.id === sc.id ? 'border-blue-500 bg-blue-900/10' : 'border-slate-700 bg-slate-800/30 hover:border-slate-600'}`}
-                            >
-                                <div className="flex justify-between items-start mb-2">
-                                    <h4 className="font-semibold text-sm text-slate-200">{sc.title}</h4>
-                                    {activeScenario?.id === sc.id && <span className="text-[10px] bg-blue-500 text-white px-1.5 py-0.5 rounded">Actif</span>}
-                                </div>
-
-                                {activeScenario?.id === sc.id ? (
-                                    <div className="space-y-2 mt-2">
-                                        {sc.steps.map((step, idx) => (
-                                            <div key={idx} className={`text-xs flex gap-2 ${idx === currentStepIndex ? 'text-blue-300 font-medium' : idx < currentStepIndex ? 'text-green-500 line-through opacity-50' : 'text-slate-500'}`}>
-                                                <span>{idx + 1}.</span>
-                                                <span>{step.desc}</span>
-                                            </div>
-                                        ))}
-                                        <div className="mt-3 p-2 bg-slate-900 rounded border border-blue-900/50">
-                                            <p className="text-[10px] text-slate-400 mb-1">Commande à taper :</p>
-                                            <code className="text-xs text-green-400 font-mono block bg-black/30 p-1 rounded">
-                                                {sc.steps[currentStepIndex]?.cmd || "Scénario terminé ! 🎉"}
-                                            </code>
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); executeCommand(sc.steps[currentStepIndex]?.cmd, true); }}
-                                                className="w-full mt-2 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded transition-colors"
-                                                disabled={currentStepIndex >= sc.steps.length}
-                                            >
-                                                Exécuter Auto
-                                            </button>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <p className="text-xs text-slate-500">{sc.steps.length} étapes • Débutant</p>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
 
             {/* Timeline (Mode Expert) */}
             {mode === 'expert' && (
