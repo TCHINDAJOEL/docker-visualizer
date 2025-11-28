@@ -814,19 +814,78 @@ const AppContent = () => {
 
       // RUN
       if (action === 'run') {
-        const imgName = args.find(arg => !arg.startsWith('-') && arg !== 'docker' && arg !== 'run' && arg !== '-d');
-        const nameArg = args.indexOf('--name');
-        const netArg = args.indexOf('--net') !== -1 ? args.indexOf('--net') : args.indexOf('--network');
+        // Parsing plus robuste des arguments
+        const runArgs = args.slice(2); // Skip 'docker' and 'run'
+        let imgName = null;
+        let containerName = null;
+        let networkName = 'bridge';
+        let envVars = ['PATH=/usr/local/sbin:/usr/local/bin', 'LANG=C.UTF-8'];
+        let ports = [];
+        let volumes = [];
+        let cmd = [];
 
-        const containerName = nameArg !== -1 ? args[nameArg + 1] : `${imgName}_${generateId()}`;
-        const networkName = netArg !== -1 ? args[netArg + 1] : 'bridge';
+        // Simple state machine for parsing
+        let i = 0;
+        while (i < runArgs.length) {
+          const arg = runArgs[i];
+
+          if (arg.startsWith('-')) {
+            // Flags with values
+            if (['--name'].includes(arg)) {
+              containerName = runArgs[i + 1];
+              i += 2;
+            } else if (['--net', '--network'].includes(arg)) {
+              networkName = runArgs[i + 1];
+              i += 2;
+            } else if (['-e', '--env'].includes(arg)) {
+              envVars.push(runArgs[i + 1]);
+              i += 2;
+            } else if (['-p', '--publish'].includes(arg)) {
+              ports.push(runArgs[i + 1]);
+              i += 2;
+            } else if (['-v', '--volume'].includes(arg)) {
+              const volPart = runArgs[i + 1];
+              const [src, tgt] = volPart.split(':');
+              volumes.push({ source: src, target: tgt });
+              i += 2;
+            }
+            // Boolean flags
+            else if (['-d', '--detach', '-it', '--rm', '--privileged'].includes(arg)) {
+              i++;
+            }
+            // Unknown flags or combined short flags (simplified handling)
+            else {
+              i++;
+            }
+          } else {
+            // First non-flag argument is the image
+            if (!imgName) {
+              imgName = arg;
+              i++;
+            } else {
+              // Subsequent arguments are the command
+              cmd.push(arg);
+              i++;
+            }
+          }
+        }
+
+        if (!imgName) {
+          newHistory.push({ type: 'error', content: 'docker run: requires at least 1 argument.' });
+          setHistory(newHistory);
+          return;
+        }
+
+        if (!containerName) {
+          containerName = `${imgName.split(':')[0]}_${generateId().substr(0, 6)}`;
+        }
 
         // Vérification image
-        let image = images.find(i => i.repository === imgName);
+        let image = images.find(i => i.repository === imgName || i.repository + ':' + i.tag === imgName);
         if (!image) {
-          newHistory.push({ type: 'info', content: `Unable to find image '${imgName}:latest' locally` });
+          newHistory.push({ type: 'info', content: `Unable to find image '${imgName}' locally` });
           newHistory.push({ type: 'info', content: `Pulling from library/${imgName}...` });
-          image = { id: generateId(), repository: imgName, tag: 'latest', size: 'Unkown', layers: 3 };
+          image = { id: generateId(), repository: imgName, tag: 'latest', size: 'Unknown', layers: 3 };
           setImages(prev => [...prev, image]);
         }
 
@@ -835,11 +894,13 @@ const AppContent = () => {
           name: containerName,
           image: image.repository,
           status: 'running',
-          networks: [networkName], // Changed to array
+          networks: [networkName],
           created: new Date(),
           stats: { cpu: 0, mem: 0, cpuHistory: new Array(20).fill(0), memHistory: new Array(20).fill(0) },
-          env: ['PATH=/usr/local/sbin:/usr/local/bin', 'LANG=C.UTF-8'],
-          logs: [`[entrypoint] Starting ${imgName}...`, `[info] Server listening on port 80`]
+          env: envVars,
+          ports: ports,
+          mounts: volumes,
+          logs: [`[entrypoint] Starting ${imgName}...`, `[info] Server listening...`]
         };
 
         setContainers(prev => [...prev, newContainer]);
@@ -849,6 +910,8 @@ const AppContent = () => {
 
         // Check scenario progress
         if (activeScenario && activeScenario.steps[currentStepIndex].cmd.includes('run')) {
+          // Basic validation that we ran a run command
+          // The actual validation function in the scenario will check the state
           setCurrentStepIndex(prev => prev + 1);
         }
       }

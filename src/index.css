@@ -58,6 +58,7 @@
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -68,6 +69,7 @@
     transform: translateX(100%);
     opacity: 0;
   }
+
   to {
     transform: translateX(0);
     opacity: 1;
@@ -79,6 +81,7 @@
     transform: translateY(20px);
     opacity: 0;
   }
+
   to {
     transform: translateY(0);
     opacity: 1;
@@ -90,6 +93,7 @@
     transform: scale(0.9);
     opacity: 0;
   }
+
   to {
     transform: scale(1);
     opacity: 1;
@@ -97,9 +101,12 @@
 }
 
 @keyframes pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.5;
   }
@@ -123,4 +130,14 @@
 
 .animate-pulse {
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes dashFlow {
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+
+.animate-dash-flow {
+  animation: dashFlow 2s linear infinite;
 }

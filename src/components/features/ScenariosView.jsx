@@ -16,6 +16,18 @@ const ScenariosView = ({ scenarios, activeScenario, onStartScenario, onNextStep,
         // but we can also render a summary here if they come back to "Scenarios" tab.
         // For now, let's assume this view shows the detailed progress when "Scenarios" tab is active.
         const currentStep = activeScenario.steps[currentStepIndex];
+
+        // Safety check to prevent crashes if index is out of bounds
+        if (!currentStep) {
+            return (
+                <div className="h-full flex items-center justify-center text-zinc-400">
+                    <div className="text-center">
+                        <CheckCircle size={48} className="mx-auto mb-4 text-green-500" />
+                        <h2 className="text-xl font-bold text-white">Scenario Completed</h2>
+                    </div>
+                </div>
+            );
+        }
         const isLastStep = currentStepIndex === activeScenario.steps.length - 1;
 
         return (

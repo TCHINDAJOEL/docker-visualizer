@@ -9,6 +9,7 @@ const ActiveScenarioBanner = ({ activeScenario, currentStepIndex, validationStat
     if (!activeScenario) return null;
 
     const currentStep = activeScenario.steps[currentStepIndex];
+    if (!currentStep) return null;
     const progress = ((currentStepIndex + 1) / activeScenario.steps.length) * 100;
 
     return (
