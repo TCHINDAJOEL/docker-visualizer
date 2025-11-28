@@ -48,7 +48,16 @@ const InspectorPanel = ({ selectedItem, containers, setShowInspector, executeCom
                     >
                         <RefreshCw size={16} /> Restart
                     </button>
-                    <button className="p-2 rounded bg-slate-700 hover:bg-slate-600 text-white flex flex-col items-center gap-1 text-xs">
+                    <button
+                        onClick={() => {
+                            if (container.status === 'running') {
+                                executeCommand(`docker exec -it ${container.id} /bin/sh`, true);
+                            }
+                        }}
+                        className={`p-2 rounded ${container.status === 'running' ? 'bg-slate-700 hover:bg-slate-600 text-white' : 'bg-slate-800 text-slate-600 cursor-not-allowed'} flex flex-col items-center gap-1 text-xs`}
+                        disabled={container.status !== 'running'}
+                        title={container.status !== 'running' ? 'Container must be running' : 'Execute shell in container'}
+                    >
                         <Terminal size={16} /> Exec
                     </button>
                     <button

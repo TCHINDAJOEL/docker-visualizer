@@ -5,6 +5,10 @@ import TopologyMap from './components/features/TopologyMap';
 import InspectorPanel from './components/features/InspectorPanel';
 import Terminal from './components/features/Terminal';
 import HostView from './components/features/HostView';
+import ContainersView from './components/features/ContainersView';
+import ImagesView from './components/features/ImagesView';
+import NetworksView from './components/features/NetworksView';
+import VolumesView from './components/features/VolumesView';
 import { MOCK_IMAGES } from './data/mockData';
 import { generateId } from './utils/helpers';
 
@@ -61,24 +65,30 @@ const App = () => {
     if (stoppedContainers.length > 0) {
       setContainers(runningContainers);
       addTimelineEvent('delete', `Pruned ${stoppedContainers.length} stopped containers`);
+      setHistory(prev => [...prev,
+        { type: 'info', content: `Deleted Containers: ${stoppedContainers.length}` }
+      ]);
+    } else {
+      setHistory(prev => [...prev, { type: 'info', content: 'Total reclaimed space: 0B' }]);
     }
 
     // Remove unused images (mock logic: remove images not used by running containers)
-    // For simplicity in this mock, we just say we pruned images without actually removing them from MOCK_IMAGES unless we track usage
     addTimelineEvent('delete', 'Pruned dangling images and build cache');
-
-    setHistory(prev => [...prev, { type: 'info', content: 'Deleted: 0B' }]); // Mock output
   };
 
   const handleSecurityCheck = () => {
     addTimelineEvent('info', 'Security audit started...');
+    setHistory(prev => [...prev,
+      { type: 'info', content: '🔒 Running security audit...' }
+    ]);
+
     setTimeout(() => {
       addTimelineEvent('success', 'Security audit completed: No critical issues found.');
       setHistory(prev => [...prev,
-      { type: 'info', content: 'Security Check Results:' },
-      { type: 'info', content: '[PASS] AppArmor enabled' },
-      { type: 'info', content: '[WARN] Rootless mode disabled' },
-      { type: 'info', content: '[PASS] No insecure registries' }
+        { type: 'info', content: 'Security Check Results:' },
+        { type: 'info', content: '[PASS] AppArmor enabled' },
+        { type: 'info', content: '[WARN] Rootless mode disabled' },
+        { type: 'info', content: '[PASS] No insecure registries' }
       ]);
     }, 1000);
   };
@@ -213,6 +223,65 @@ const App = () => {
           setContainers(prev => prev.map(c => c.id === container.id ? { ...c, status: 'running' } : c));
           addTimelineEvent('status', `Conteneur ${container.name} démarré`);
           newHistory.push({ type: 'output', content: container.name });
+        } else {
+          newHistory.push({ type: 'error', content: `Error: No such container: ${target}` });
+        }
+      }
+      // RESTART
+      else if (action === 'restart') {
+        const target = args[2];
+        const container = containers.find(c => c.id.startsWith(target) || c.name === target);
+        if (container) {
+          addTimelineEvent('status', `Conteneur ${container.name} redémarré`);
+          newHistory.push({ type: 'output', content: container.name });
+        } else {
+          newHistory.push({ type: 'error', content: `Error: No such container: ${target}` });
+        }
+      }
+      // LOGS
+      else if (action === 'logs') {
+        const target = args[2];
+        const container = containers.find(c => c.id.startsWith(target) || c.name === target);
+        if (container) {
+          newHistory.push({ type: 'output', content: `=== Logs for ${container.name} ===` });
+          container.logs.forEach(log => {
+            newHistory.push({ type: 'output', content: log });
+          });
+        } else {
+          newHistory.push({ type: 'error', content: `Error: No such container: ${target}` });
+        }
+      }
+      // INSPECT
+      else if (action === 'inspect') {
+        const target = args[2];
+        const container = containers.find(c => c.id.startsWith(target) || c.name === target);
+        if (container) {
+          const inspectData = JSON.stringify({
+            Id: container.id,
+            Name: container.name,
+            Image: container.image,
+            State: { Status: container.status, Running: container.status === 'running' },
+            NetworkSettings: { Networks: { [container.network]: { IPAddress: `172.17.0.${containers.findIndex(c2 => c2.id === container.id) + 2}` } } }
+          }, null, 2);
+          newHistory.push({ type: 'output', content: inspectData });
+        } else {
+          newHistory.push({ type: 'error', content: `Error: No such container: ${target}` });
+        }
+      }
+      // EXEC
+      else if (action === 'exec') {
+        const target = args.find(arg => !arg.startsWith('-') && arg !== 'docker' && arg !== 'exec');
+        const container = containers.find(c => c.id.startsWith(target) || c.name === target);
+        if (container) {
+          if (container.status !== 'running') {
+            newHistory.push({ type: 'error', content: `Error: Container ${target} is not running` });
+          } else {
+            const command = args.slice(args.indexOf(target) + 1).join(' ');
+            newHistory.push({ type: 'info', content: `Executing in ${container.name}: ${command}` });
+            newHistory.push({ type: 'output', content: '# (interactive shell session - type "exit" to return)' });
+          }
+        } else {
+          newHistory.push({ type: 'error', content: `Error: No such container: ${target}` });
         }
       }
       // RM
@@ -241,7 +310,7 @@ const App = () => {
           setCurrentStepIndex(prev => prev + 1);
         }
       }
-      // PS, IMAGES, ETC
+      // PS
       else if (action === 'ps') {
         // Simulation output handled in renderer mostly, here just log
         newHistory.push({ type: 'output', content: 'CONTAINER ID   IMAGE     STATUS    NAMES' });
@@ -253,12 +322,86 @@ const App = () => {
           setCurrentStepIndex(prev => prev + 1);
         }
       }
+      // IMAGES
+      else if (action === 'images') {
+        newHistory.push({ type: 'output', content: 'REPOSITORY     TAG       IMAGE ID      SIZE' });
+        images.forEach(img => {
+          newHistory.push({ type: 'output', content: `${img.repository.padEnd(14)} ${img.tag.padEnd(9)} ${img.id.substr(0, 12)} ${img.size}` });
+        });
+      }
+      // NETWORK LS
+      else if (action === 'network' && args[2] === 'ls') {
+        newHistory.push({ type: 'output', content: 'NETWORK ID    NAME      DRIVER    SCOPE' });
+        networks.forEach(net => {
+          newHistory.push({ type: 'output', content: `${net.id.substr(0, 12)}  ${net.name.padEnd(9)} ${net.driver.padEnd(9)} ${net.scope}` });
+        });
+      }
+      // NETWORK RM
+      else if (action === 'network' && args[2] === 'rm') {
+        const netId = args[3];
+        const network = networks.find(n => n.id.startsWith(netId) || n.name === netId);
+        if (network) {
+          if (['bridge', 'host', 'none'].includes(network.name)) {
+            newHistory.push({ type: 'error', content: `Error: Cannot remove system network ${network.name}` });
+          } else {
+            const connectedContainers = containers.filter(c => c.network === network.name);
+            if (connectedContainers.length > 0) {
+              newHistory.push({ type: 'error', content: `Error: network ${network.name} has active endpoints` });
+            } else {
+              setNetworks(prev => prev.filter(n => n.id !== network.id));
+              addTimelineEvent('delete', `Réseau ${network.name} supprimé`);
+              newHistory.push({ type: 'output', content: network.id });
+            }
+          }
+        } else {
+          newHistory.push({ type: 'error', content: `Error: No such network: ${netId}` });
+        }
+      }
+      // RMI (remove image)
+      else if (action === 'rmi') {
+        const imgId = args[2];
+        const image = images.find(i => i.id.startsWith(imgId) || i.repository === imgId);
+        if (image) {
+          const usingContainers = containers.filter(c => c.image === image.repository);
+          if (usingContainers.length > 0) {
+            newHistory.push({ type: 'error', content: `Error: image ${image.repository} is being used by containers` });
+          } else {
+            setImages(prev => prev.filter(i => i.id !== image.id));
+            addTimelineEvent('delete', `Image ${image.repository} supprimée`);
+            newHistory.push({ type: 'output', content: `Untagged: ${image.repository}:${image.tag}` });
+            newHistory.push({ type: 'output', content: `Deleted: ${image.id}` });
+          }
+        } else {
+          newHistory.push({ type: 'error', content: `Error: No such image: ${imgId}` });
+        }
+      }
       else {
         newHistory.push({ type: 'error', content: `Commande non reconnue ou non implémentée dans cette démo.` });
       }
     } else if (command === 'clear') {
       setHistory([]);
       return;
+    } else if (command === 'help') {
+      newHistory.push({ type: 'info', content: '=== Commandes disponibles ===' });
+      newHistory.push({ type: 'info', content: 'Containers:' });
+      newHistory.push({ type: 'info', content: '  docker run [--name <name>] [--net <network>] [-d] <image>' });
+      newHistory.push({ type: 'info', content: '  docker ps [-a]' });
+      newHistory.push({ type: 'info', content: '  docker stop <container>' });
+      newHistory.push({ type: 'info', content: '  docker start <container>' });
+      newHistory.push({ type: 'info', content: '  docker restart <container>' });
+      newHistory.push({ type: 'info', content: '  docker rm [-f] <container>' });
+      newHistory.push({ type: 'info', content: '  docker logs <container>' });
+      newHistory.push({ type: 'info', content: '  docker inspect <container>' });
+      newHistory.push({ type: 'info', content: '  docker exec [-it] <container> <command>' });
+      newHistory.push({ type: 'info', content: 'Images:' });
+      newHistory.push({ type: 'info', content: '  docker images' });
+      newHistory.push({ type: 'info', content: '  docker rmi <image>' });
+      newHistory.push({ type: 'info', content: 'Networks:' });
+      newHistory.push({ type: 'info', content: '  docker network create <name>' });
+      newHistory.push({ type: 'info', content: '  docker network ls' });
+      newHistory.push({ type: 'info', content: '  docker network rm <network>' });
+      newHistory.push({ type: 'info', content: 'Other:' });
+      newHistory.push({ type: 'info', content: '  clear - Effacer le terminal' });
     } else {
       newHistory.push({ type: 'error', content: `Commande inconnue: ${command}` });
     }
@@ -300,6 +443,34 @@ const App = () => {
                 onSecurityCheck={handleSecurityCheck}
               />
             </div>
+          ) : activeView === 'containers' ? (
+            <div className="flex-1 relative overflow-hidden">
+              <ContainersView
+                containers={containers}
+                setSelectedItem={setSelectedItem}
+                setShowInspector={setShowInspector}
+                executeCommand={executeCommand}
+              />
+            </div>
+          ) : activeView === 'images' ? (
+            <div className="flex-1 relative overflow-hidden">
+              <ImagesView
+                images={images}
+                executeCommand={executeCommand}
+              />
+            </div>
+          ) : activeView === 'networks' ? (
+            <div className="flex-1 relative overflow-hidden">
+              <NetworksView
+                networks={networks}
+                containers={containers}
+                executeCommand={executeCommand}
+              />
+            </div>
+          ) : activeView === 'volumes' ? (
+            <div className="flex-1 relative overflow-hidden">
+              <VolumesView />
+            </div>
           ) : (
             <>
               {/* Toolbar du haut de la carte */}
@@ -307,13 +478,6 @@ const App = () => {
                 <div className="text-xs text-slate-400 flex items-center gap-2">
                   <span className="font-bold text-slate-200">Vue Topologique</span>
                   <span className="bg-slate-800 px-1.5 rounded text-[10px]">Live</span>
-                </div>
-                <div className="flex gap-2">
-                  {['2D Map', 'List', 'YAML'].map(view => (
-                    <button key={view} className="text-[10px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition-colors">
-                      {view}
-                    </button>
-                  ))}
                 </div>
               </div>
 
