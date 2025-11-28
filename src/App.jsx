@@ -12,13 +12,14 @@ import ContainersView from './components/features/ContainersView';
 import ImagesView from './components/features/ImagesView';
 import NetworksView from './components/features/NetworksView';
 import VolumesView from './components/features/VolumesView';
+import MonitoringView from './components/features/MonitoringView';
 import { MOCK_IMAGES } from './data/mockData';
 import { generateId } from './utils/helpers';
 
 const App = () => {
   // --- État Global ---
   const [mode, setMode] = useState('beginner'); // 'beginner' | 'expert'
-  const [activeView, setActiveView] = useState('dashboard'); // 'dashboard', 'containers', 'images', 'networks'
+  const [activeView, setActiveView] = useState('dashboard'); // 'dashboard', 'containers', 'images', 'networks', 'monitoring'
   const [selectedItem, setSelectedItem] = useState(null); // ID de l'élément inspecté
   const [showInspector, setShowInspector] = useState(true);
 
@@ -227,9 +228,31 @@ const App = () => {
         const cpuHistory = [...c.stats.cpuHistory.slice(-historyLength), newCpu];
         const memHistory = [...c.stats.memHistory.slice(-historyLength), newMem];
 
+        // Simulate Health Check (randomly fail 5% of time if not already failing)
+        let newHealth = { ...c.health };
+        if (Math.random() > 0.98) {
+          newHealth.status = newHealth.status === 'healthy' ? 'unhealthy' : 'healthy';
+        }
+
+        // Simulate Logs
+        let newLogs = [...c.logs];
+        if (Math.random() > 0.8) {
+          const logMessages = [
+            `[INFO] Request processed in ${Math.floor(Math.random() * 200)}ms`,
+            `[INFO] Health check passed`,
+            `[WARN] High memory usage detected`,
+            `[ERROR] Connection timeout to database`,
+            `[INFO] Worker started task #${Math.floor(Math.random() * 1000)}`
+          ];
+          newLogs.push(logMessages[Math.floor(Math.random() * logMessages.length)]);
+          if (newLogs.length > 100) newLogs.shift(); // Keep last 100 logs
+        }
+
         return {
           ...c,
-          stats: { cpu: newCpu, mem: newMem, cpuHistory, memHistory }
+          stats: { cpu: newCpu, mem: newMem, cpuHistory, memHistory },
+          health: newHealth,
+          logs: newLogs
         };
       }));
 
@@ -259,10 +282,12 @@ const App = () => {
       networks: [formData.network], // Changed to array
       created: new Date(),
       stats: { cpu: 0, mem: 0, cpuHistory: new Array(20).fill(0), memHistory: new Array(20).fill(0) },
+      health: { status: 'healthy', lastCheck: new Date() }, // Add health
       env: formData.env.filter(e => e.key).map(e => `${e.key}=${e.value}`),
       ports: formData.ports.filter(p => p.host).map(p => `${p.host}:${p.container}`),
       mounts: formData.mounts || [], // Add mounts
       restartPolicy: formData.restartPolicy,
+      restartCount: 0,
       logs: [`[entrypoint] Container created from ${formData.image}`]
     };
 
@@ -797,6 +822,13 @@ const App = () => {
                 containers={containers}
                 executeCommand={executeCommand}
                 onCreate={() => setIsCreateVolumeModalOpen(true)}
+              />
+            </div>
+          ) : activeView === 'monitoring' ? (
+            <div className="flex-1 relative overflow-hidden">
+              <MonitoringView
+                containers={containers}
+                timeline={timeline}
               />
             </div>
           ) : (

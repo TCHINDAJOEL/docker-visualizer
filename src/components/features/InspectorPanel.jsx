@@ -183,6 +183,16 @@ const InspectorPanel = ({ selectedItem, containers, volumes, setShowInspector, e
                                 <span className="text-slate-300">{container.restartPolicy || 'no'}</span>
                             </div>
                             <div className="flex justify-between">
+                                <span className="text-slate-500">Restarts:</span>
+                                <span className="text-slate-300">{container.restartCount || 0}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-slate-500">Health:</span>
+                                <span className={container.health?.status === 'unhealthy' ? 'text-red-400 font-bold' : 'text-green-400'}>
+                                    {container.health?.status?.toUpperCase() || 'HEALTHY'}
+                                </span>
+                            </div>
+                            <div className="flex justify-between">
                                 <span className="text-slate-500">Created:</span>
                                 <span className="text-slate-300">{new Date(container.created).toLocaleString()}</span>
                             </div>

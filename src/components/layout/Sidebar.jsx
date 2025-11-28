@@ -25,6 +25,7 @@ const Sidebar = ({
                     { id: 'images', icon: Layers, label: 'Images', count: images.length },
                     { id: 'networks', icon: Network, label: 'Networks', count: networks.length },
                     { id: 'volumes', icon: Database, label: 'Volumes', count: 0 },
+                    { id: 'monitoring', icon: Activity, label: 'Monitoring' },
                 ].map(item => (
                     <button
                         key={item.id}
