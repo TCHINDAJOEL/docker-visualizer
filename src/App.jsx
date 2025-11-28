@@ -66,7 +66,7 @@ const App = () => {
       setContainers(runningContainers);
       addTimelineEvent('delete', `Pruned ${stoppedContainers.length} stopped containers`);
       setHistory(prev => [...prev,
-        { type: 'info', content: `Deleted Containers: ${stoppedContainers.length}` }
+      { type: 'info', content: `Deleted Containers: ${stoppedContainers.length}` }
       ]);
     } else {
       setHistory(prev => [...prev, { type: 'info', content: 'Total reclaimed space: 0B' }]);
@@ -79,18 +79,114 @@ const App = () => {
   const handleSecurityCheck = () => {
     addTimelineEvent('info', 'Security audit started...');
     setHistory(prev => [...prev,
-      { type: 'info', content: '🔒 Running security audit...' }
+    { type: 'info', content: '🔒 Running security audit...' }
     ]);
 
     setTimeout(() => {
       addTimelineEvent('success', 'Security audit completed: No critical issues found.');
       setHistory(prev => [...prev,
-        { type: 'info', content: 'Security Check Results:' },
-        { type: 'info', content: '[PASS] AppArmor enabled' },
-        { type: 'info', content: '[WARN] Rootless mode disabled' },
-        { type: 'info', content: '[PASS] No insecure registries' }
+      { type: 'info', content: 'Security Check Results:' },
+      { type: 'info', content: '[PASS] AppArmor enabled' },
+      { type: 'info', content: '[WARN] Rootless mode disabled' },
+      { type: 'info', content: '[PASS] No insecure registries' }
       ]);
     }, 1000);
+  };
+
+  // --- Image Management Handlers ---
+
+  const handlePullImage = (repoTag) => {
+    if (!repoTag) return;
+    const [repo, tag = 'latest'] = repoTag.split(':');
+
+    addTimelineEvent('info', `Pulling ${repo}:${tag}...`);
+    setHistory(prev => [...prev, { type: 'info', content: `Pulling from library/${repo}...` }]);
+
+    setTimeout(() => {
+      // Check if already exists
+      const exists = images.find(i => i.repository === repo && i.tag === tag);
+      if (exists) {
+        setHistory(prev => [...prev, { type: 'info', content: `Image ${repo}:${tag} is up to date` }]);
+        return;
+      }
+
+      const newImage = {
+        id: generateId(),
+        repository: repo,
+        tag: tag,
+        size: `${Math.floor(Math.random() * 500) + 20}MB`,
+        layers: Array(5).fill(0).map((_, i) => ({ id: generateId(), size: '10MB', cmd: `Layer ${i + 1} instruction` })),
+        config: {
+          env: ['PATH=/usr/local/sbin:/usr/local/bin'],
+          cmd: ['/bin/sh'],
+          entrypoint: null,
+          exposedPorts: {},
+          volumes: {}
+        },
+        created: new Date().toISOString(),
+        protected: false
+      };
+
+      setImages(prev => [...prev, newImage]);
+      addTimelineEvent('create', `Image ${repo}:${tag} downloaded`);
+      setHistory(prev => [...prev, { type: 'success', content: `Status: Downloaded newer image for ${repo}:${tag}` }]);
+    }, 1500);
+  };
+
+  const handlePushImage = (imageId) => {
+    const img = images.find(i => i.id === imageId);
+    if (!img) return;
+
+    addTimelineEvent('info', `Pushing ${img.repository}:${img.tag}...`);
+    setHistory(prev => [...prev, { type: 'info', content: `The push refers to repository [docker.io/library/${img.repository}]` }]);
+
+    setTimeout(() => {
+      addTimelineEvent('success', `Image ${img.repository}:${img.tag} pushed`);
+      setHistory(prev => [...prev, { type: 'success', content: `${img.tag}: digest: sha256:${generateId()} size: ${img.size}` }]);
+    }, 1500);
+  };
+
+  const handleTagImage = (imageId, newRepoTag) => {
+    const img = images.find(i => i.id === imageId);
+    if (!img || !newRepoTag) return;
+
+    const [newRepo, newTag = 'latest'] = newRepoTag.split(':');
+
+    // In Docker, tagging creates an alias (same ID). For this mock, we'll just duplicate the object with same ID but different repo/tag in the view, 
+    // OR we can create a new entry with same ID. 
+    // Let's create a new entry with a NEW ID for simplicity in React keys, but logically it should be same ID.
+    // To avoid key conflicts, we'll generate a new ID but link them in spirit.
+
+    const newImage = { ...img, id: generateId(), repository: newRepo, tag: newTag };
+    setImages(prev => [...prev, newImage]);
+    addTimelineEvent('info', `Tagged ${img.repository}:${img.tag} as ${newRepo}:${newTag}`);
+  };
+
+  const handleRemoveImage = (imageId) => {
+    const img = images.find(i => i.id === imageId);
+    if (!img) return;
+
+    if (img.protected) {
+      setHistory(prev => [...prev, { type: 'error', content: `Error: Image ${img.repository}:${img.tag} is protected.` }]);
+      return;
+    }
+
+    // Check if used by running containers
+    const isUsed = containers.some(c => c.image === img.repository); // Simplified check
+    if (isUsed) {
+      setHistory(prev => [...prev, { type: 'error', content: `Error: conflict: unable to delete ${img.id} (cannot be forced) - image is being used by running container` }]);
+      return;
+    }
+
+    setImages(prev => prev.filter(i => i.id !== imageId));
+    addTimelineEvent('delete', `Image ${img.repository}:${img.tag} deleted`);
+    setHistory(prev => [...prev, { type: 'output', content: `Deleted: ${img.id}` }]);
+  };
+
+  const handleToggleProtection = (imageId) => {
+    setImages(prev => prev.map(img =>
+      img.id === imageId ? { ...img, protected: !img.protected } : img
+    ));
   };
 
   // État Terminal
@@ -457,6 +553,11 @@ const App = () => {
               <ImagesView
                 images={images}
                 executeCommand={executeCommand}
+                onPull={handlePullImage}
+                onPush={handlePushImage}
+                onTag={handleTagImage}
+                onRemove={handleRemoveImage}
+                onProtect={handleToggleProtection}
               />
             </div>
           ) : activeView === 'networks' ? (
