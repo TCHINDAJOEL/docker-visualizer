@@ -2,9 +2,82 @@ import { generateId } from '../utils/helpers';
 
 export const SCENARIOS = [
     {
+        id: 'scenario-batch',
+        title: 'Travail Batch Simple',
+        description: 'Exécutez un conteneur éphémère qui effectue une tâche et se termine.',
+        difficulty: 'Beginner',
+        icon: 'Terminal',
+        steps: [
+            {
+                id: 'step1',
+                instruction: 'Exécutez un conteneur qui se termine immédiatement avec un message',
+                hint: 'Utilisez le terminal en bas de l\'écran pour taper la commande.',
+                cmd: 'docker run --name batch-job alpine echo "Job Done"',
+                validation: (state) => {
+                    const container = state.containers.find(c => c.name === 'batch-job');
+                    return container && (container.status === 'exited' || container.logs.some(l => l.includes('Job Done')));
+                }
+            },
+            {
+                id: 'step2',
+                instruction: 'Inspectez les logs du conteneur terminé pour vérifier la sortie.',
+                hint: 'Sélectionnez "batch-job" dans la vue Containers et consultez les Logs, ou utilisez docker logs.',
+                cmd: 'docker logs batch-job',
+                autoAdvance: false
+            },
+            {
+                id: 'step3',
+                instruction: 'Supprimez le conteneur terminé pour nettoyer.',
+                hint: 'Un conteneur arrêté peut être supprimé sans l\'option -f',
+                cmd: 'docker rm batch-job',
+                validation: (state) => !state.containers.some(c => c.name === 'batch-job')
+            }
+        ]
+    },
+    {
+        id: 'scenario-first-container',
+        title: 'Mon Premier Conteneur',
+        description: 'Créez et gérez votre premier conteneur Docker avec nginx.',
+        difficulty: 'Beginner',
+        icon: 'Server',
+        steps: [
+            {
+                id: 'step1',
+                instruction: 'Créez un conteneur nginx nommé "mon-web"',
+                hint: 'Utilisez docker run avec l\'option --name',
+                cmd: 'docker run -d --name mon-web nginx',
+                validation: (state) => state.containers.some(c => c.name === 'mon-web' && c.status === 'running')
+            },
+            {
+                id: 'step2',
+                instruction: 'Listez tous les conteneurs en cours d\'exécution',
+                hint: 'La commande docker ps affiche les conteneurs actifs',
+                cmd: 'docker ps',
+                autoAdvance: false
+            },
+            {
+                id: 'step3',
+                instruction: 'Arrêtez le conteneur mon-web',
+                hint: 'Utilisez docker stop suivi du nom du conteneur',
+                cmd: 'docker stop mon-web',
+                validation: (state) => {
+                    const container = state.containers.find(c => c.name === 'mon-web');
+                    return container && container.status === 'exited';
+                }
+            },
+            {
+                id: 'step4',
+                instruction: 'Supprimez le conteneur arrêté',
+                hint: 'docker rm permet de supprimer un conteneur arrêté',
+                cmd: 'docker rm mon-web',
+                validation: (state) => !state.containers.some(c => c.name === 'mon-web')
+            }
+        ]
+    },
+    {
         id: 'scenario-webapp',
-        title: 'Web App 3-Tiers Resilience',
-        description: 'Deploy a classic Nginx + API + DB stack, then simulate a network failure to observe resilience.',
+        title: 'Application Web 3-Tiers',
+        description: 'Déployez une stack classique Nginx + API + DB, puis simulez une panne réseau.',
         difficulty: 'Intermediate',
         icon: 'Layers',
         steps: [

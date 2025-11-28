@@ -87,31 +87,57 @@ const ScenariosView = ({ scenarios, activeScenario, onStartScenario, onNextStep,
                                     </div>
                                 )}
 
-                                <div className="flex items-center justify-between mt-8 pt-8 border-t border-white/10">
-                                    <div className="flex items-center gap-2">
-                                        {validationState ? (
-                                            <span className="text-green-400 flex items-center gap-2 font-medium animate-in fade-in">
-                                                <CheckCircle size={20} /> Task Completed
-                                            </span>
-                                        ) : (
-                                            <span className="text-zinc-500 flex items-center gap-2 text-sm">
-                                                <Circle size={16} /> Waiting for action...
-                                            </span>
-                                        )}
-                                    </div>
+                                {/* Validation Status avec animation */}
+                                <div className="mt-8 p-4 rounded-lg border-2 transition-all duration-300"
+                                    style={{
+                                        borderColor: validationState ? 'rgb(34, 197, 94)' : 'rgba(255, 255, 255, 0.1)',
+                                        backgroundColor: validationState ? 'rgba(34, 197, 94, 0.1)' : 'rgba(0, 0, 0, 0.2)'
+                                    }}>
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            {validationState ? (
+                                                <>
+                                                    <CheckCircle size={24} className="text-green-400 animate-scaleIn" />
+                                                    <div>
+                                                        <div className="text-green-400 font-bold">✅ Tâche Complétée !</div>
+                                                        <div className="text-xs text-green-400/70">Vous pouvez passer à l'étape suivante</div>
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Circle size={24} className="text-zinc-500 animate-pulse" />
+                                                    <div>
+                                                        <div className="text-zinc-400 font-medium">En attente...</div>
+                                                        <div className="text-xs text-zinc-500">Effectuez l'action demandée</div>
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
 
-                                    <button
-                                        onClick={onNextStep}
-                                        disabled={!validationState && currentStep.autoAdvance !== false}
-                                        className={`px-6 py-3 rounded-lg font-bold flex items-center gap-2 transition-all
-                                            ${validationState || currentStep.autoAdvance === false
-                                                ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/20'
-                                                : 'bg-white/5 text-zinc-500 cursor-not-allowed'}`}
-                                    >
-                                        {isLastStep ? 'Finish Scenario' : 'Next Step'}
-                                        <ArrowRight size={18} />
-                                    </button>
+                                        <button
+                                            onClick={onNextStep}
+                                            disabled={!validationState && currentStep.autoAdvance !== false}
+                                            className={`px-8 py-3 rounded-lg font-bold flex items-center gap-2 transition-all transform hover:scale-105
+                                                ${validationState || currentStep.autoAdvance === false
+                                                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white shadow-xl shadow-blue-900/30'
+                                                    : 'bg-white/5 text-zinc-600 cursor-not-allowed opacity-50'}`}
+                                        >
+                                            {isLastStep ? '🎉 Terminer le Scénario' : 'Étape Suivante'}
+                                            <ChevronRight size={20} />
+                                        </button>
+                                    </div>
                                 </div>
+
+                                {/* Commande suggérée si disponible */}
+                                {currentStep.cmd && !validationState && (
+                                    <div className="mt-4 p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
+                                        <div className="text-sm text-blue-300 mb-2 font-semibold">💡 Commande suggérée :</div>
+                                        <code className="text-green-400 font-mono text-sm bg-black/40 px-3 py-2 rounded block">
+                                            {currentStep.cmd}
+                                        </code>
+                                        <div className="text-xs text-slate-400 mt-2">Copiez cette commande dans le terminal en bas</div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>

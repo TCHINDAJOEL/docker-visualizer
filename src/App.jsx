@@ -18,6 +18,7 @@ import ScenariosView from './components/features/ScenariosView';
 import LandingPage from './components/layout/LandingPage';
 import OnboardingTour from './components/common/OnboardingTour';
 import ContextualHelp from './components/common/ContextualHelp';
+import ActiveScenarioBanner from './components/common/ActiveScenarioBanner';
 import { ToastContainer } from './components/common/Toast';
 import { LanguageProvider } from './context/LanguageContext';
 import { useToast } from './hooks/useToast';
@@ -37,7 +38,7 @@ const AppContent = () => {
   const [showInspector, setShowInspector] = useState(true);
 
   // Hook pour les notifications toast
-  const { toasts, removeToast, showSuccess } = useToast();
+  const { toasts, removeToast, showSuccess, showInfo } = useToast();
 
   // Vérifier si l'utilisateur a déjà vu l'onboarding
   useEffect(() => {
@@ -426,20 +427,30 @@ const AppContent = () => {
       setActiveScenario(scenario);
       setCurrentStepIndex(0);
       setValidationState(false);
+      showInfo(`🎓 Scénario démarré : ${scenario.title}`);
+      addTimelineEvent('info', `Started scenario: ${scenario.title}`);
+      setActiveView('scenarios'); // Rester sur la vue scénarios
     }
   };
 
   const handleNextStep = () => {
     if (activeScenario && currentStepIndex < activeScenario.steps.length - 1) {
-      setCurrentStepIndex(prev => prev + 1);
+      const nextIndex = currentStepIndex + 1;
+      setCurrentStepIndex(nextIndex);
       setValidationState(false);
+      showInfo(`📋 Étape ${nextIndex + 1}/${activeScenario.steps.length} : ${activeScenario.steps[nextIndex].instruction}`);
+      addTimelineEvent('info', `Started scenario step ${nextIndex + 1}`);
     } else {
       // Finish
       addTimelineEvent('success', `Scenario "${activeScenario.title}" completed!`);
-      setHistory(prev => [...prev, { type: 'success', content: `Scenario "${activeScenario.title}" completed!` }]);
-      setActiveScenario(null);
-      setCurrentStepIndex(0);
-      setValidationState(false);
+      setHistory(prev => [...prev, { type: 'success', content: `🎉 Scenario "${activeScenario.title}" completed!` }]);
+      showSuccess(`🎉 Félicitations ! Scénario "${activeScenario.title}" terminé avec succès !`);
+      setTimeout(() => {
+        setActiveScenario(null);
+        setCurrentStepIndex(0);
+        setValidationState(false);
+        setActiveView('scenarios');
+      }, 2000);
     }
   };
 
@@ -449,12 +460,21 @@ const AppContent = () => {
       const step = activeScenario.steps[currentStepIndex];
       if (step && step.validation) {
         const isValid = step.validation({ containers, networks, volumes, stacks });
-        if (isValid !== validationState) {
-          setValidationState(isValid);
+        if (isValid && !validationState) {
+          setValidationState(true);
+          showSuccess(`✅ Étape ${currentStepIndex + 1} validée ! Vous pouvez passer à la suite.`);
+          addTimelineEvent('success', `Scenario step ${currentStepIndex + 1} completed`);
+        } else if (!isValid && validationState) {
+          setValidationState(false);
+        }
+      } else if (step && !step.validation) {
+        // Si pas de validation définie, on considère l'étape comme manuelle
+        if (!validationState) {
+          setValidationState(true);
         }
       }
     }
-  }, [containers, networks, volumes, stacks, activeScenario, currentStepIndex, validationState]);
+  }, [containers, networks, volumes, stacks, activeScenario, currentStepIndex, validationState, showSuccess]);
 
   // --- Moteur de Simulation (Effets) ---
 
@@ -1156,6 +1176,20 @@ const AppContent = () => {
 
       {/* Toast Notifications */}
       <ToastContainer toasts={toasts} removeToast={removeToast} />
+
+      {/* Bannière de scénario actif */}
+      <ActiveScenarioBanner
+        activeScenario={activeScenario}
+        currentStepIndex={currentStepIndex}
+        validationState={validationState}
+        onViewScenario={() => setActiveView('scenarios')}
+        onCancel={() => {
+          setActiveScenario(null);
+          setCurrentStepIndex(0);
+          setValidationState(false);
+          showInfo('Scénario annulé');
+        }}
+      />
 
       {/* Aide Contextuelle */}
       <ContextualHelp activeView={activeView} mode={mode} />
