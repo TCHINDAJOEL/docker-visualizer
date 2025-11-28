@@ -15,13 +15,16 @@ import VolumesView from './components/features/VolumesView';
 import MonitoringView from './components/features/MonitoringView';
 import StacksView from './components/features/StacksView';
 import ScenariosView from './components/features/ScenariosView';
+import LandingPage from './components/layout/LandingPage';
+import { LanguageProvider } from './context/LanguageContext';
 import { MOCK_IMAGES } from './data/mockData';
 import { SCENARIOS } from './data/scenarios';
 import { generateId } from './utils/helpers';
 import { parseComposeFile } from './utils/yamlParser';
 
-const App = () => {
+const AppContent = () => {
   // --- État Global ---
+  const [showLanding, setShowLanding] = useState(true);
   const [mode, setMode] = useState('beginner'); // 'beginner' | 'expert'
   const [activeView, setActiveView] = useState('dashboard'); // 'dashboard', 'containers', 'images', 'networks', 'monitoring', 'stacks', 'scenarios'
   const [selectedItem, setSelectedItem] = useState(null); // ID de l'élément inspecté
@@ -395,10 +398,7 @@ const App = () => {
   };
 
   // État Terminal
-  const [history, setHistory] = useState([
-    { type: 'info', content: 'Docker Engine v20.10.17 initialized...' },
-    { type: 'info', content: 'Mode interactif activé.' }
-  ]);
+  const [history, setHistory] = useState([]);
   // inputCmd moved to Terminal component
 
   // État Scénario
@@ -976,11 +976,6 @@ const App = () => {
       newHistory.push({ type: 'info', content: '  docker network disconnect <network> <container>' });
       newHistory.push({ type: 'info', content: 'Volumes:' });
       newHistory.push({ type: 'info', content: '  docker volume create <name>' });
-      newHistory.push({ type: 'info', content: '  docker volume ls' });
-      newHistory.push({ type: 'info', content: '  docker volume rm <name>' });
-      newHistory.push({ type: 'info', content: '  docker volume inspect <name>' });
-      newHistory.push({ type: 'info', content: '  docker volume prune' });
-      newHistory.push({ type: 'info', content: 'Other:' });
       newHistory.push({ type: 'info', content: '  clear - Effacer le terminal' });
     } else {
       newHistory.push({ type: 'error', content: `Commande inconnue: ${command}` });
@@ -989,14 +984,25 @@ const App = () => {
     setHistory(newHistory);
   };
 
+
+
+  if (showLanding) {
+    return <LandingPage onEnter={() => {
+      window.scrollTo(0, 0);
+      setShowLanding(false);
+    }} />;
+  }
+
   return (
-    <div className="flex flex-col h-screen bg-slate-950 text-gray-100 font-sans overflow-hidden selection:bg-blue-500/30">
+    <div className="flex flex-col h-dvh bg-zinc-950 text-zinc-100 font-sans overflow-hidden selection:bg-blue-500/30 relative">
+      {/* Background Gradients */}
+      <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[128px] pointer-events-none"></div>
+      <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-purple-600/10 rounded-full blur-[128px] pointer-events-none"></div>
 
       {/* 1. Header Global */}
       <Header mode={mode} setMode={setMode} />
 
       <div className="flex-1 flex overflow-hidden">
-
         {/* 2. Colonne Gauche : Navigation & Scénarios */}
         <Sidebar
           mode={mode}
@@ -1014,7 +1020,7 @@ const App = () => {
         />
 
         {/* 3. Zone Centrale : Visualisation Graphique */}
-        <div className="flex-1 flex flex-col relative bg-slate-950">
+        <div className="flex-1 flex flex-col relative z-10">
           {activeView === 'host' ? (
             <div className="flex-1 relative overflow-hidden">
               <HostView
@@ -1114,7 +1120,8 @@ const App = () => {
                 />
               </div>
             </>
-          )}
+          )
+          }
 
           {/* 4. Zone Basse : Console / Terminal */}
           <Terminal
@@ -1123,25 +1130,27 @@ const App = () => {
             onClear={() => setHistory([])}
             mode={mode}
           />
-        </div>
+        </div >
 
         {/* 5. Colonne Droite : Inspecteur */}
-        {showInspector && (
-          <aside className="w-80 bg-slate-900 border-l border-slate-800 shrink-0 transition-all duration-300 shadow-xl z-20">
-            <InspectorPanel
-              selectedItem={selectedItem}
-              containers={containers}
-              volumes={volumes}
-              setShowInspector={setShowInspector}
-              executeCommand={executeCommand}
-            />
-          </aside>
-        )}
+        {
+          showInspector && (
+            <aside className="w-80 bg-slate-900 border-l border-slate-800 shrink-0 transition-all duration-300 shadow-xl z-20">
+              <InspectorPanel
+                selectedItem={selectedItem}
+                containers={containers}
+                volumes={volumes}
+                setShowInspector={setShowInspector}
+                executeCommand={executeCommand}
+              />
+            </aside>
+          )
+        }
 
-      </div>
+      </div >
 
       {/* Modals */}
-      <CreateContainerModal
+      < CreateContainerModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         images={images}
@@ -1159,8 +1168,15 @@ const App = () => {
         onClose={() => setIsCreateVolumeModalOpen(false)}
         onCreate={handleCreateVolume}
       />
-    </div>
+    </div >
   );
 };
 
+const App = () => (
+  <LanguageProvider>
+    <AppContent />
+  </LanguageProvider>
+);
+
 export default App;
+

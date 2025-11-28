@@ -3,8 +3,8 @@ import { Network, Trash2, Box } from 'lucide-react';
 
 const NetworksView = ({ networks, containers, executeCommand, onCreate }) => {
   return (
-    <div className="p-6 overflow-y-auto h-full bg-slate-950">
-      <h2 className="text-2xl font-bold mb-6 flex items-center gap-3 text-slate-200">
+    <div className="p-6 overflow-y-auto h-full bg-transparent">
+      <h2 className="text-2xl font-bold mb-6 flex items-center gap-3 text-zinc-100">
         <Network className="text-blue-500" />
         Networks ({networks.length})
       </h2>
@@ -17,20 +17,20 @@ const NetworksView = ({ networks, containers, executeCommand, onCreate }) => {
           return (
             <div
               key={network.id}
-              className="bg-slate-900/50 border border-slate-800 rounded-xl p-4 hover:border-blue-500/50 transition-all"
+              className="glass border border-white/10 rounded-xl p-4 hover:border-blue-500/50 transition-all"
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <Network size={18} className="text-blue-400" />
                   <div>
                     <h3 className="font-bold text-white">{network.name}</h3>
-                    <div className="text-xs text-slate-400">{network.driver} driver</div>
+                    <div className="text-xs text-zinc-400">{network.driver} driver</div>
                   </div>
                 </div>
                 {canDelete && (
                   <button
                     onClick={() => executeCommand(`docker network rm ${network.id}`, true)}
-                    className="p-1.5 rounded bg-slate-800 hover:bg-red-900/50 text-slate-400 hover:text-red-400 transition-colors"
+                    className="p-1.5 rounded bg-white/5 hover:bg-red-900/50 text-zinc-400 hover:text-red-400 transition-colors"
                     title="Delete network"
                   >
                     <Trash2 size={14} />
@@ -39,15 +39,15 @@ const NetworksView = ({ networks, containers, executeCommand, onCreate }) => {
               </div>
 
               <div className="space-y-2 text-xs mb-3">
-                <div className="flex justify-between p-2 bg-slate-800/30 rounded">
-                  <span className="text-slate-500">Network ID</span>
-                  <span className="font-mono text-slate-300">{network.id.substr(0, 12)}</span>
+                <div className="flex justify-between p-2 bg-black/40 rounded">
+                  <span className="text-zinc-500">Network ID</span>
+                  <span className="font-mono text-zinc-300">{network.id.substr(0, 12)}</span>
                 </div>
-                <div className="flex justify-between p-2 bg-slate-800/30 rounded">
-                  <span className="text-slate-500">Subnet</span>
+                <div className="flex justify-between p-2 bg-black/40 rounded">
+                  <span className="text-zinc-500">Subnet</span>
                   <span className="font-mono text-blue-300">{network.subnet}</span>
                 </div>
-                <div className="flex justify-between p-2 bg-slate-800/30 rounded">
+                <div className="flex justify-between p-2 bg-black/40 rounded">
                   <span className="text-slate-500">Scope</span>
                   <span className="text-slate-300">{network.scope}</span>
                 </div>

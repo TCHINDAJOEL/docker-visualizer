@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, ChevronRight, Square, Play, RefreshCw, Terminal, Trash2, Activity, Settings, FileText, Pause, FolderOpen, AlertCircle } from 'lucide-react';
+import { Search, ChevronRight, Square, Play, RefreshCw, Terminal, Trash2, Activity, Settings, FileText, Pause, FolderOpen, AlertCircle, Database } from 'lucide-react';
 
 const InspectorPanel = ({ selectedItem, containers, volumes, setShowInspector, executeCommand }) => {
     const [activeTab, setActiveTab] = useState('info'); // info, logs, stats, exec, fs
@@ -17,8 +17,8 @@ const InspectorPanel = ({ selectedItem, containers, volumes, setShowInspector, e
     // --- VOLUME INSPECTOR ---
     if (volume) {
         return (
-            <div className="h-full flex flex-col bg-slate-800 border-l border-slate-700">
-                <div className="p-4 border-b border-slate-700 flex justify-between items-start bg-slate-900/50">
+            <div className="h-full flex flex-col glass border-l-0">
+                <div className="p-4 border-b border-white/10 flex justify-between items-start bg-white/5">
                     <div>
                         <h2 className="font-bold text-lg text-white flex items-center gap-2">
                             <Database size={18} className="text-purple-400" />
@@ -29,14 +29,14 @@ const InspectorPanel = ({ selectedItem, containers, volumes, setShowInspector, e
                     <button onClick={() => setShowInspector(false)} className="text-slate-400 hover:text-white"><ChevronRight size={18} /></button>
                 </div>
 
-                <div className="flex border-b border-slate-700">
-                    <button className="flex-1 py-2 text-xs font-medium uppercase tracking-wider border-b-2 border-purple-500 text-purple-400 bg-slate-800">
+                <div className="flex border-b border-white/10">
+                    <button className="flex-1 py-2 text-xs font-medium uppercase tracking-wider border-b-2 border-purple-500 text-purple-400 bg-white/5">
                         Info
                     </button>
                 </div>
 
                 <div className="p-4 space-y-4">
-                    <div className="bg-slate-900 rounded border border-slate-700 text-xs font-mono p-3 space-y-2">
+                    <div className="bg-black/40 rounded border border-white/10 text-xs font-mono p-3 space-y-2">
                         <div className="flex justify-between">
                             <span className="text-slate-500">Created:</span>
                             <span className="text-slate-300">{new Date(volume.created).toLocaleString()}</span>
@@ -78,9 +78,9 @@ const InspectorPanel = ({ selectedItem, containers, volumes, setShowInspector, e
     if (!container) return null; // Item deleted
 
     return (
-        <div className="h-full flex flex-col bg-slate-800 border-l border-slate-700">
+        <div className="h-full flex flex-col glass border-l-0">
             {/* Header Inspecteur */}
-            <div className="p-4 border-b border-slate-700 flex justify-between items-start bg-slate-900/50">
+            <div className="p-4 border-b border-white/10 flex justify-between items-start bg-white/5">
                 <div>
                     <h2 className="font-bold text-lg text-white flex items-center gap-2">
                         {container.name}
@@ -96,7 +96,7 @@ const InspectorPanel = ({ selectedItem, containers, volumes, setShowInspector, e
             </div>
 
             {/* Actions Rapides */}
-            <div className="p-2 grid grid-cols-5 gap-1 border-b border-slate-700 bg-slate-800">
+            <div className="p-2 grid grid-cols-5 gap-1 border-b border-white/10 bg-black/20">
                 <button
                     onClick={() => executeCommand(container.status === 'running' ? `docker stop ${container.id}` : `docker start ${container.id}`, true)}
                     className={`p-1.5 rounded flex flex-col items-center gap-1 text-[10px] font-medium transition-colors
@@ -146,12 +146,12 @@ const InspectorPanel = ({ selectedItem, containers, volumes, setShowInspector, e
             </div>
 
             {/* Tabs Navigation */}
-            <div className="flex border-b border-slate-700">
+            <div className="flex border-b border-white/10">
                 {['info', 'logs', 'stats', 'exec', 'fs'].map(tab => (
                     <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
-                        className={`flex-1 py-2 text-xs font-medium uppercase tracking-wider border-b-2 transition-colors ${activeTab === tab ? 'border-blue-500 text-blue-400 bg-slate-800' : 'border-transparent text-slate-500 hover:text-slate-300 hover:bg-slate-700/50'
+                        className={`flex-1 py-2 text-xs font-medium uppercase tracking-wider border-b-2 transition-colors ${activeTab === tab ? 'border-blue-500 text-blue-400 bg-white/5' : 'border-transparent text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
                             }`}
                     >
                         {tab}
@@ -165,7 +165,7 @@ const InspectorPanel = ({ selectedItem, containers, volumes, setShowInspector, e
                 {/* INFO TAB */}
                 {activeTab === 'info' && (
                     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
-                        <div className="bg-slate-900 rounded border border-slate-700 text-xs font-mono p-3 space-y-2">
+                        <div className="bg-black/40 rounded border border-white/10 text-xs font-mono p-3 space-y-2">
                             <div className="flex justify-between">
                                 <span className="text-slate-500">Image:</span>
                                 <span className="text-yellow-300">{container.image}</span>
@@ -200,7 +200,7 @@ const InspectorPanel = ({ selectedItem, containers, volumes, setShowInspector, e
 
                         <div>
                             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Environment</h3>
-                            <div className="bg-slate-900 rounded border border-slate-700 p-2 text-xs font-mono space-y-1">
+                            <div className="bg-black/40 rounded border border-white/10 p-2 text-xs font-mono space-y-1">
                                 {container.env?.map((e, i) => (
                                     <div key={i} className="text-slate-300 break-all">{e}</div>
                                 )) || <span className="text-slate-600 italic">No environment variables</span>}
@@ -209,7 +209,7 @@ const InspectorPanel = ({ selectedItem, containers, volumes, setShowInspector, e
 
                         <div>
                             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Ports</h3>
-                            <div className="bg-slate-900 rounded border border-slate-700 p-2 text-xs font-mono space-y-1">
+                            <div className="bg-black/40 rounded border border-white/10 p-2 text-xs font-mono space-y-1">
                                 {container.ports?.map((p, i) => (
                                     <div key={i} className="text-slate-300">{p}</div>
                                 )) || <span className="text-slate-600 italic">No ports mapped</span>}
@@ -218,7 +218,7 @@ const InspectorPanel = ({ selectedItem, containers, volumes, setShowInspector, e
 
                         <div>
                             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Mounts</h3>
-                            <div className="bg-slate-900 rounded border border-slate-700 p-2 text-xs font-mono space-y-1">
+                            <div className="bg-black/40 rounded border border-white/10 p-2 text-xs font-mono space-y-1">
                                 {container.mounts?.map((m, i) => (
                                     <div key={i} className="text-slate-300 flex justify-between">
                                         <span className="text-purple-400">{m.source}</span>
@@ -231,7 +231,7 @@ const InspectorPanel = ({ selectedItem, containers, volumes, setShowInspector, e
 
                         <div>
                             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Security Context</h3>
-                            <div className="bg-slate-900 rounded border border-slate-700 p-2 text-xs font-mono space-y-2">
+                            <div className="bg-black/40 rounded border border-white/10 p-2 text-xs font-mono space-y-2">
                                 <div className="flex justify-between">
                                     <span className="text-slate-500">User:</span>
                                     <span className={container.security?.user === 'root' ? 'text-red-400 font-bold' : 'text-green-400'}>

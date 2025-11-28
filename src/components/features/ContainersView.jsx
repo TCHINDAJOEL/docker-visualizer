@@ -3,9 +3,9 @@ import { Box, Play, Square, Trash2, Activity, Plus, Pause, Circle } from 'lucide
 
 const ContainersView = ({ containers, setSelectedItem, setShowInspector, executeCommand, onCreate }) => {
   return (
-    <div className="p-6 overflow-y-auto h-full bg-slate-950">
+    <div className="p-6 overflow-y-auto h-full bg-transparent">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold flex items-center gap-3 text-slate-200">
+        <h2 className="text-2xl font-bold flex items-center gap-3 text-zinc-100">
           <Box className="text-blue-500" />
           Containers ({containers.length})
         </h2>
@@ -20,7 +20,7 @@ const ContainersView = ({ containers, setSelectedItem, setShowInspector, execute
 
       {containers.length === 0 ? (
         <div className="flex items-center justify-center h-64">
-          <div className="text-center text-slate-500">
+          <div className="text-center text-zinc-500">
             <Box size={64} className="mx-auto mb-4 opacity-20" />
             <p className="text-lg">Aucun conteneur</p>
             <p className="text-sm mt-2">Utilisez 'Create Container' pour démarrer</p>
@@ -32,8 +32,8 @@ const ContainersView = ({ containers, setSelectedItem, setShowInspector, execute
             <div
               key={container.id}
               onClick={() => { setSelectedItem(container.id); setShowInspector(true); }}
-              className={`bg-slate-900/50 border rounded-xl p-4 cursor-pointer transition-all hover:border-blue-500/50 ${container.status === 'running' ? 'border-green-900/50' :
-                  container.status === 'paused' ? 'border-yellow-900/50' : 'border-red-900/50'
+              className={`glass border rounded-xl p-4 cursor-pointer transition-all hover:border-blue-500/50 ${container.status === 'running' ? 'border-green-500/30' :
+                container.status === 'paused' ? 'border-yellow-500/30' : 'border-red-500/30'
                 }`}
             >
               <div className="flex items-start justify-between mb-3">
@@ -49,7 +49,7 @@ const ContainersView = ({ containers, setSelectedItem, setShowInspector, execute
                     <h3 className="font-bold text-lg text-white">{container.name}</h3>
                     <span
                       className={`text-[10px] px-2 py-0.5 rounded-full uppercase ${container.status === 'running' ? 'bg-green-500/20 text-green-400' :
-                          container.status === 'paused' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'
+                        container.status === 'paused' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'
                         }`}
                     >
                       {container.status}
@@ -58,7 +58,7 @@ const ContainersView = ({ containers, setSelectedItem, setShowInspector, execute
                   <div className="text-xs text-slate-400 font-mono space-y-1">
                     <div>ID: {container.id}</div>
                     <div>Image: <span className="text-yellow-300">{container.image}</span></div>
-                    <div>Network: <span className="text-blue-300">{container.network}</span></div>
+                    <div>Networks: <span className="text-blue-300">{container.networks?.join(', ') || 'none'}</span></div>
                   </div>
                 </div>
 
@@ -73,8 +73,8 @@ const ContainersView = ({ containers, setSelectedItem, setShowInspector, execute
                       );
                     }}
                     className={`p-2 rounded transition-colors ${container.status === 'running'
-                        ? 'bg-red-900/30 text-red-400 hover:bg-red-900/50'
-                        : 'bg-green-900/30 text-green-400 hover:bg-green-900/50'
+                      ? 'bg-red-900/30 text-red-400 hover:bg-red-900/50'
+                      : 'bg-green-900/30 text-green-400 hover:bg-green-900/50'
                       }`}
                     title={container.status === 'running' ? 'Stop' : 'Start'}
                   >
@@ -92,8 +92,8 @@ const ContainersView = ({ containers, setSelectedItem, setShowInspector, execute
                         );
                       }}
                       className={`p-2 rounded transition-colors ${container.status === 'paused'
-                          ? 'bg-green-900/30 text-green-400 hover:bg-green-900/50'
-                          : 'bg-yellow-900/30 text-yellow-400 hover:bg-yellow-900/50'
+                        ? 'bg-green-900/30 text-green-400 hover:bg-green-900/50'
+                        : 'bg-yellow-900/30 text-yellow-400 hover:bg-yellow-900/50'
                         }`}
                       title={container.status === 'paused' ? 'Unpause' : 'Pause'}
                     >

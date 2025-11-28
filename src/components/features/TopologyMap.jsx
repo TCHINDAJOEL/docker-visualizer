@@ -3,22 +3,22 @@ import { Network, Box } from 'lucide-react';
 
 const TopologyMap = ({ networks, containers, selectedItem, setSelectedItem, setShowInspector, mode }) => {
     return (
-        <div className="relative h-full w-full bg-slate-900 overflow-hidden flex flex-wrap content-start p-8 gap-8 overflow-y-auto">
+        <div className="relative h-full w-full bg-transparent overflow-hidden flex flex-wrap content-start p-8 gap-8 overflow-y-auto">
             {networks.map(net => {
                 const netContainers = containers.filter(c => c.networks.includes(net.name));
                 return (
-                    <div key={net.id} className="border border-slate-700 rounded-xl bg-slate-800/30 p-4 min-w-[300px] min-h-[200px] relative group transition-all hover:border-blue-500/50">
-                        <div className="absolute -top-3 left-4 px-2 bg-slate-900 text-blue-400 text-xs font-mono border border-slate-700 rounded flex items-center gap-2">
+                    <div key={net.id} className="border border-white/10 rounded-xl glass p-4 min-w-[300px] min-h-[200px] relative group transition-all hover:border-blue-500/50">
+                        <div className="absolute -top-3 left-4 px-2 bg-black/60 backdrop-blur text-blue-400 text-xs font-mono border border-white/10 rounded flex items-center gap-2">
                             <div className="flex items-center gap-1">
                                 <Network size={12} />
                                 <span>{net.name} ({net.driver})</span>
                             </div>
                         </div>
-                        <div className="mt-2 text-xs text-slate-500 font-mono mb-4">{net.subnet}</div>
+                        <div className="mt-2 text-xs text-zinc-500 font-mono mb-4">{net.subnet}</div>
 
                         <div className="flex flex-wrap gap-4">
                             {netContainers.length === 0 && (
-                                <div className="w-full h-24 flex items-center justify-center text-slate-600 text-xs italic border-2 border-dashed border-slate-800 rounded">
+                                <div className="w-full h-24 flex items-center justify-center text-zinc-600 text-xs italic border-2 border-dashed border-white/5 rounded">
                                     Réseau vide
                                 </div>
                             )}
@@ -41,14 +41,7 @@ const TopologyMap = ({ networks, containers, selectedItem, setSelectedItem, setS
                     </div>
                 )
             })}
-            {mode === 'beginner' && containers.length === 0 && (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="bg-blue-600/90 text-white p-6 rounded-xl shadow-2xl max-w-md text-center">
-                        <h3 className="text-lg font-bold mb-2">👋 Bienvenue sur le Docker Lab</h3>
-                        <p className="text-sm opacity-90">Votre environnement est vide. Utilisez le terminal en bas ou choisissez un scénario à gauche pour démarrer votre premier conteneur.</p>
-                    </div>
-                </div>
-            )}
+            {/* Welcome message removed */}
         </div>
     );
 };
