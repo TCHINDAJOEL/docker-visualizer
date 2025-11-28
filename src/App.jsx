@@ -16,19 +16,38 @@ import MonitoringView from './components/features/MonitoringView';
 import StacksView from './components/features/StacksView';
 import ScenariosView from './components/features/ScenariosView';
 import LandingPage from './components/layout/LandingPage';
+import OnboardingTour from './components/common/OnboardingTour';
+import ContextualHelp from './components/common/ContextualHelp';
+import { ToastContainer } from './components/common/Toast';
 import { LanguageProvider } from './context/LanguageContext';
+import { useToast } from './hooks/useToast';
 import { MOCK_IMAGES } from './data/mockData';
 import { SCENARIOS } from './data/scenarios';
 import { generateId } from './utils/helpers';
 import { parseComposeFile } from './utils/yamlParser';
+import { createFileSystem, fsLs, fsCd, fsTouch, fsMkdir, fsCat, fsPwd } from './utils/fileSystem';
 
 const AppContent = () => {
   // --- État Global ---
   const [showLanding, setShowLanding] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [mode, setMode] = useState('beginner'); // 'beginner' | 'expert'
   const [activeView, setActiveView] = useState('dashboard'); // 'dashboard', 'containers', 'images', 'networks', 'monitoring', 'stacks', 'scenarios'
   const [selectedItem, setSelectedItem] = useState(null); // ID de l'élément inspecté
   const [showInspector, setShowInspector] = useState(true);
+
+  // Hook pour les notifications toast
+  const { toasts, removeToast, showSuccess } = useToast();
+
+  // Vérifier si l'utilisateur a déjà vu l'onboarding
+  useEffect(() => {
+    if (!showLanding) {
+      const hasSeenOnboarding = localStorage.getItem('onboarding-completed');
+      if (!hasSeenOnboarding) {
+        setTimeout(() => setShowOnboarding(true), 500);
+      }
+    }
+  }, [showLanding]);
 
   // Données Docker
   const [containers, setContainers] = useState([]);
@@ -105,9 +124,6 @@ const AppContent = () => {
     if (!stack) return;
 
     addTimelineEvent('info', `Stopping stack ${stack.name}...`);
-
-    // Find containers belonging to this stack (simple name check)
-    const stackContainers = containers.filter(c => c.name.startsWith(`${stack.name}_`));
 
     setTimeout(() => {
       setContainers(prev => prev.filter(c => !c.name.startsWith(`${stack.name}_`))); // Remove them for "Stop" in this mock, or just stop them? 
@@ -296,10 +312,6 @@ const AppContent = () => {
     }, 1500);
   };
 
-  // Old simple check replaced by above
-  const handleSecurityCheck = () => { // Renamed from handleSecurityCheck to handleSimpleSecurityCheck as per instruction's diff
-    handleSecurityAudit();
-  };
 
   // --- Image Management Handlers ---
 
@@ -399,6 +411,7 @@ const AppContent = () => {
 
   // État Terminal
   const [history, setHistory] = useState([]);
+  const [terminalContext, setTerminalContext] = useState({ type: 'host' }); // { type: 'host' } | { type: 'container', containerId: '...', cwd: '/' }
   // inputCmd moved to Terminal component
 
   // État Scénario
@@ -527,12 +540,14 @@ const AppContent = () => {
       mounts: formData.mounts || [], // Add mounts
       restartPolicy: formData.restartPolicy,
       restartCount: 0,
-      logs: [`[entrypoint] Container created from ${formData.image}`]
+      logs: [`[entrypoint] Container created from ${formData.image}`],
+      fileSystem: createFileSystem(formData.image)
     };
 
     setContainers(prev => [...prev, newContainer]);
     addTimelineEvent('create', `Container ${newContainer.name} created`);
     setHistory(prev => [...prev, { type: 'success', content: `Container ${newContainer.id} created` }]);
+    showSuccess(`Conteneur ${newContainer.name} créé avec succès!`);
   };
 
   // --- Network Management Handlers ---
@@ -633,16 +648,141 @@ const AppContent = () => {
     setTimeline(prev => [{ time, type, message }, ...prev].slice(0, 50));
   };
 
-  const executeCommand = (cmdStr, fromUI = false) => {
+  const executeCommand = (cmdStr) => {
     if (!cmdStr || !cmdStr.trim()) return;
 
     // Si la commande vient de l'interface, on l'affiche aussi dans le terminal pour l'éducation
-    const newHistory = [...history, { type: 'cmd', content: cmdStr }];
+    const currentPrompt = terminalContext.type === 'container'
+      ? `root@${terminalContext.containerId.substring(0, 12)}:${terminalContext.cwd}#`
+      : '➜';
+    const newHistory = [...history, { type: 'cmd', content: cmdStr, prompt: currentPrompt }];
 
     const args = cmdStr.trim().split(/\s+/);
     const command = args[0];
 
     // Parser basique
+
+    // --- Context: Container ---
+    if (terminalContext.type === 'container') {
+      const container = containers.find(c => c.id === terminalContext.containerId);
+      if (!container) {
+        setTerminalContext({ type: 'host' });
+        newHistory.push({ type: 'error', content: 'Container not found. Connection closed.' });
+        setHistory(newHistory);
+        return;
+      }
+
+      // Handle exit
+      if (command === 'exit') {
+        setTerminalContext({ type: 'host' });
+        newHistory.push({ type: 'info', content: 'exit' });
+        setHistory(newHistory);
+        return;
+      }
+
+      // Handle File System Commands
+      let output = '';
+      let newFs = container.fileSystem || createFileSystem();
+      let newCwd = terminalContext.cwd;
+      let fsUpdated = false;
+
+      if (command === 'ls') {
+        const flags = args.filter(a => a.startsWith('-')).join('');
+        output = fsLs(newFs, terminalContext.cwd, flags);
+        newHistory.push({ type: 'output', content: output });
+      } else if (command === 'pwd') {
+        output = fsPwd(terminalContext.cwd);
+        newHistory.push({ type: 'output', content: output });
+      } else if (command === 'cd') {
+        const target = args[1] || '~';
+        const result = fsCd(newFs, terminalContext.cwd, target);
+        if (result) {
+          newCwd = result;
+          setTerminalContext(prev => ({ ...prev, cwd: newCwd }));
+        } else {
+          newHistory.push({ type: 'error', content: `cd: ${target}: No such file or directory` });
+        }
+      } else if (command === 'touch') {
+        const filename = args[1];
+        if (filename) {
+          newFs = fsTouch(newFs, terminalContext.cwd, filename);
+          fsUpdated = true;
+        } else {
+          newHistory.push({ type: 'error', content: 'touch: missing file operand' });
+        }
+      } else if (command === 'mkdir') {
+        const dirname = args[1];
+        if (dirname) {
+          newFs = fsMkdir(newFs, terminalContext.cwd, dirname);
+          fsUpdated = true;
+        } else {
+          newHistory.push({ type: 'error', content: 'mkdir: missing operand' });
+        }
+      } else if (command === 'cat') {
+        const filename = args[1];
+        if (filename) {
+          output = fsCat(newFs, terminalContext.cwd, filename);
+          newHistory.push({ type: 'output', content: output });
+        } else {
+          newHistory.push({ type: 'error', content: 'cat: missing file operand' });
+        }
+      }
+      // Specific Commands Handlers
+      else if (command === 'nginx' && (newFs['/usr/bin'].children.includes('nginx') || container.image.includes('nginx'))) {
+        if (args.includes('-v') || args.includes('-V')) {
+          newHistory.push({ type: 'output', content: 'nginx version: nginx/1.21.6' });
+        } else {
+          newHistory.push({ type: 'output', content: 'nginx: [alert] could not open error log file: open() "/var/log/nginx/error.log" failed (13: Permission denied)' });
+        }
+      }
+      else if (command === 'redis-cli' && (newFs['/usr/bin'].children.includes('redis-cli') || container.image.includes('redis'))) {
+        if (args.includes('--version') || args.includes('-v')) {
+          newHistory.push({ type: 'output', content: 'redis-cli 6.0.9' });
+        } else {
+          newHistory.push({ type: 'output', content: '127.0.0.1:6379> ping\nPONG\n127.0.0.1:6379> (interactive mode not fully simulated)' });
+        }
+      }
+      else if (command === 'node' && (newFs['/usr/bin'].children.includes('node') || container.image.includes('node'))) {
+        if (args.includes('-v') || args.includes('--version')) {
+          newHistory.push({ type: 'output', content: 'v14.17.0' });
+        } else {
+          newHistory.push({ type: 'output', content: 'Welcome to Node.js v14.17.0.\nType ".help" for more information.\n> (interactive mode not fully simulated)' });
+        }
+      }
+      else if (command === 'npm' && (newFs['/usr/bin'].children.includes('npm') || container.image.includes('node'))) {
+        if (args.includes('-v') || args.includes('--version')) {
+          newHistory.push({ type: 'output', content: '6.14.13' });
+        } else {
+          newHistory.push({ type: 'output', content: 'Usage: npm <command>\n\nwhere <command> is one of:\n    access, adduser, audit, bin, bugs, c, cache, ci, cit,\n    clean-install, clean-install-test, completion, config,\n    create, ddp, dedupe, deprecate, dist-tag, docs, doctor,\n    edit, explore, fund, get, help, help-search, hook,\n    i, init, install, install-ci-test, install-test, it,\n    link, list, ll, ln, login, logout, ls, org, outdated,\n    owner, pack, ping, prefix, profile, prune, publish,\n    r, rb, rebuild, repo, restart, root, run, run-script,\n    s, se, search, set, shrinkwrap, star, stars, start,\n    stop, t, team, test, token, tst, un, uninstall,\n    unpublish, unstar, up, update, v, version, view, whoami' });
+        }
+      }
+      else if (command === 'psql' && (newFs['/usr/bin'].children.includes('psql') || container.image.includes('postgres'))) {
+        if (args.includes('--version') || args.includes('-V')) {
+          newHistory.push({ type: 'output', content: 'psql (PostgreSQL) 13.3' });
+        } else {
+          newHistory.push({ type: 'output', content: 'psql: error: could not connect to server: No such file or directory' });
+        }
+      }
+      else if (command === 'python' && (newFs['/usr/bin'].children.includes('python') || container.image.includes('python'))) {
+        if (args.includes('--version') || args.includes('-V')) {
+          newHistory.push({ type: 'output', content: 'Python 3.9.5' });
+        } else {
+          newHistory.push({ type: 'output', content: 'Python 3.9.5 (default, May  4 2021, 03:33:11) \n[GCC 8.3.0] on linux\nType "help", "copyright", "credits" or "license" for more information.\n>>> (interactive mode not fully simulated)' });
+        }
+      }
+      else {
+        newHistory.push({ type: 'error', content: `/bin/sh: ${command}: command not found` });
+      }
+
+      if (fsUpdated) {
+        setContainers(prev => prev.map(c => c.id === container.id ? { ...c, fileSystem: newFs } : c));
+      }
+
+      setHistory(newHistory);
+      return;
+    }
+
+    // --- Context: Host ---
     if (command === 'docker') {
       const action = args[1];
 
@@ -679,6 +819,7 @@ const AppContent = () => {
         setContainers(prev => [...prev, newContainer]);
         addTimelineEvent('create', `Conteneur ${containerName} créé`);
         newHistory.push({ type: 'output', content: newContainer.id });
+        showSuccess(`✅ Conteneur ${containerName} créé et démarré`);
 
         // Check scenario progress
         if (activeScenario && activeScenario.steps[currentStepIndex].cmd.includes('run')) {
@@ -788,7 +929,18 @@ const AppContent = () => {
           } else {
             const command = args.slice(args.indexOf(target) + 1).join(' ');
             newHistory.push({ type: 'info', content: `Executing in ${container.name}: ${command}` });
-            newHistory.push({ type: 'output', content: '# (interactive shell session - type "exit" to return)' });
+
+            // Enter interactive mode if -it and bash/sh
+            if (args.includes('-it') && (args.includes('bash') || args.includes('sh') || args.includes('/bin/bash') || args.includes('/bin/sh'))) {
+              setTerminalContext({ type: 'container', containerId: container.id, cwd: '/' });
+              // Initialize FS if needed
+              if (!container.fileSystem) {
+                setContainers(prev => prev.map(c => c.id === container.id ? { ...c, fileSystem: createFileSystem(container.image) } : c));
+              }
+              newHistory.push({ type: 'output', content: '' }); // Just a spacer
+            } else {
+              newHistory.push({ type: 'output', content: '# (interactive shell session - type "exit" to return)' });
+            }
           }
         } else {
           newHistory.push({ type: 'error', content: `Error: No such container: ${target}` });
@@ -995,6 +1147,18 @@ const AppContent = () => {
 
   return (
     <div className="flex flex-col h-dvh bg-zinc-950 text-zinc-100 font-sans overflow-hidden selection:bg-blue-500/30 relative">
+      {/* Onboarding Tour */}
+      <OnboardingTour
+        isActive={showOnboarding}
+        onComplete={() => setShowOnboarding(false)}
+        onSkip={() => setShowOnboarding(false)}
+      />
+
+      {/* Toast Notifications */}
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
+
+      {/* Aide Contextuelle */}
+      <ContextualHelp activeView={activeView} mode={mode} />
       {/* Background Gradients */}
       <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[128px] pointer-events-none"></div>
       <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-purple-600/10 rounded-full blur-[128px] pointer-events-none"></div>
@@ -1128,6 +1292,7 @@ const AppContent = () => {
             history={history}
             onExecute={executeCommand}
             onClear={() => setHistory([])}
+            context={terminalContext}
             mode={mode}
           />
         </div >
