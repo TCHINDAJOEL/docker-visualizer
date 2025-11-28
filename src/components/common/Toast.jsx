@@ -5,15 +5,19 @@ import { CheckCircle, XCircle, Info, AlertTriangle, X } from 'lucide-react';
  * Composant Toast pour afficher des notifications visuelles
  * Améliore le feedback utilisateur selon les meilleures pratiques UX
  */
-const Toast = ({ message, type = 'info', onClose, duration = 4000 }) => {
+const Toast = ({ message, type = 'info', onClose, duration = 2000 }) => {
     useEffect(() => {
-        if (duration > 0) {
+        if (duration && duration > 0) {
             const timer = setTimeout(() => {
-                onClose();
+                if (onClose) {
+                    onClose();
+                }
             }, duration);
-            return () => clearTimeout(timer);
+            return () => {
+                clearTimeout(timer);
+            };
         }
-    }, [duration, onClose]);
+    }, []);
 
     const config = {
         success: {

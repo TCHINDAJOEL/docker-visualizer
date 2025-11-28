@@ -37,6 +37,12 @@ const AppContent = () => {
   const [selectedItem, setSelectedItem] = useState(null); // ID de l'élément inspecté
   const [showInspector, setShowInspector] = useState(true);
 
+  // États pour le redimensionnement des panels
+  const [sidebarWidth, setSidebarWidth] = useState(256); // 256px = w-64
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [inspectorWidth, setInspectorWidth] = useState(384); // 384px = w-96
+  const [terminalHeight, setTerminalHeight] = useState(33.33); // 33.33% de hauteur
+
   // Hook pour les notifications toast
   const { toasts, removeToast, showSuccess, showInfo } = useToast();
 
@@ -1202,23 +1208,77 @@ const AppContent = () => {
 
       <div className="flex-1 flex overflow-hidden">
         {/* 2. Colonne Gauche : Navigation & Scénarios */}
-        <Sidebar
-          mode={mode}
-          activeView={activeView}
-          setActiveView={setActiveView}
-          containers={containers}
-          images={images}
-          networks={networks}
-          activeScenario={activeScenario}
-          setActiveScenario={setActiveScenario}
-          currentStepIndex={currentStepIndex}
-          setCurrentStepIndex={setCurrentStepIndex}
-          executeCommand={executeCommand}
-          timeline={timeline}
-        />
+        <div
+          className="relative shrink-0 transition-all duration-300"
+          style={{ width: sidebarCollapsed ? '0px' : `${sidebarWidth}px` }}
+        >
+          {!sidebarCollapsed && (
+            <Sidebar
+              mode={mode}
+              activeView={activeView}
+              setActiveView={setActiveView}
+              containers={containers}
+              images={images}
+              networks={networks}
+              timeline={timeline}
+              width={sidebarWidth}
+            />
+          )}
+
+          {/* Resize Handle pour Sidebar */}
+          {!sidebarCollapsed && (
+            <div
+              className="absolute top-0 right-0 w-2 h-full cursor-col-resize bg-transparent hover:bg-blue-500 transition-colors z-50"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const startX = e.clientX;
+                const startWidth = sidebarWidth;
+
+                const handleMouseMove = (e) => {
+                  requestAnimationFrame(() => {
+                    const diff = e.clientX - startX;
+                    const newWidth = Math.max(200, Math.min(500, startWidth + diff));
+                    setSidebarWidth(newWidth);
+                  });
+                };
+
+                const handleMouseUp = () => {
+                  document.removeEventListener('mousemove', handleMouseMove);
+                  document.removeEventListener('mouseup', handleMouseUp);
+                  document.body.style.cursor = '';
+                  document.body.style.userSelect = '';
+                };
+
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+                document.addEventListener('mousemove', handleMouseMove);
+                document.addEventListener('mouseup', handleMouseUp);
+              }}
+            />
+          )}
+        </div>
+
+        {/* Bouton Toggle Sidebar */}
+        <button
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          className="absolute left-0 top-20 z-30 bg-slate-800/90 hover:bg-slate-700 border border-white/10 rounded-r-lg p-2 transition-all"
+          style={{ left: sidebarCollapsed ? '0' : `${sidebarWidth}px` }}
+          title={sidebarCollapsed ? 'Afficher la sidebar' : 'Masquer la sidebar'}
+        >
+          {sidebarCollapsed ? (
+            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          ) : (
+            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          )}
+        </button>
 
         {/* 3. Zone Centrale : Visualisation Graphique */}
-        <div className="flex-1 flex flex-col relative z-10">
+        <div className="flex-1 flex flex-col relative z-10" style={{ height: `${100 - terminalHeight}%` }}>
           {activeView === 'host' ? (
             <div className="flex-1 relative overflow-hidden">
               <HostView
@@ -1322,19 +1382,89 @@ const AppContent = () => {
           }
 
           {/* 4. Zone Basse : Console / Terminal */}
-          <Terminal
-            history={history}
-            onExecute={executeCommand}
-            onClear={() => setHistory([])}
-            context={terminalContext}
-            mode={mode}
-          />
+          <div className="relative" style={{ height: `${terminalHeight}%` }}>
+            {/* Resize Handle pour Terminal */}
+            <div
+              className="absolute top-0 left-0 right-0 h-2 cursor-row-resize bg-transparent hover:bg-blue-500 transition-colors z-50"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const startY = e.clientY;
+                const startHeight = terminalHeight;
+                const container = document.querySelector('.flex-1.flex.flex-col');
+
+                const handleMouseMove = (e) => {
+                  requestAnimationFrame(() => {
+                    if (container) {
+                      const containerHeight = container.offsetHeight;
+                      const diff = ((startY - e.clientY) / containerHeight) * 100;
+                      const newHeight = Math.max(20, Math.min(70, startHeight + diff));
+                      setTerminalHeight(newHeight);
+                    }
+                  });
+                };
+
+                const handleMouseUp = () => {
+                  document.removeEventListener('mousemove', handleMouseMove);
+                  document.removeEventListener('mouseup', handleMouseUp);
+                  document.body.style.cursor = '';
+                  document.body.style.userSelect = '';
+                };
+
+                document.body.style.cursor = 'row-resize';
+                document.body.style.userSelect = 'none';
+                document.addEventListener('mousemove', handleMouseMove);
+                document.addEventListener('mouseup', handleMouseUp);
+              }}
+            />
+
+            <Terminal
+              history={history}
+              onExecute={executeCommand}
+              onClear={() => setHistory([])}
+              context={terminalContext}
+            />
+          </div>
         </div >
 
         {/* 5. Colonne Droite : Inspecteur */}
         {
           showInspector && (
-            <aside className="w-80 bg-slate-900 border-l border-slate-800 shrink-0 transition-all duration-300 shadow-xl z-20">
+            <aside
+              className="relative bg-slate-900 border-l border-slate-800 shrink-0 transition-all duration-300 shadow-xl z-20"
+              style={{ width: `${inspectorWidth}px` }}
+            >
+              {/* Resize Handle pour Inspector */}
+              <div
+                className="absolute top-0 left-0 w-2 h-full cursor-col-resize bg-transparent hover:bg-blue-500 transition-colors z-50"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const startX = e.clientX;
+                  const startWidth = inspectorWidth;
+
+                  const handleMouseMove = (e) => {
+                    requestAnimationFrame(() => {
+                      const diff = startX - e.clientX;
+                      const newWidth = Math.max(300, Math.min(700, startWidth + diff));
+                      setInspectorWidth(newWidth);
+                    });
+                  };
+
+                  const handleMouseUp = () => {
+                    document.removeEventListener('mousemove', handleMouseMove);
+                    document.removeEventListener('mouseup', handleMouseUp);
+                    document.body.style.cursor = '';
+                    document.body.style.userSelect = '';
+                  };
+
+                  document.body.style.cursor = 'col-resize';
+                  document.body.style.userSelect = 'none';
+                  document.addEventListener('mousemove', handleMouseMove);
+                  document.addEventListener('mouseup', handleMouseUp);
+                }}
+              />
+
               <InspectorPanel
                 selectedItem={selectedItem}
                 containers={containers}

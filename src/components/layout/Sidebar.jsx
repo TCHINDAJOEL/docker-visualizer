@@ -11,7 +11,8 @@ const BookIcon = () => (
 const Sidebar = ({
     mode, activeView, setActiveView,
     containers, images, networks,
-    timeline
+    timeline,
+    width = 256
 }) => {
     const { t } = useLanguage();
 
@@ -28,7 +29,7 @@ const Sidebar = ({
     ];
 
     return (
-        <aside className="w-64 glass border-r-0 flex flex-col shrink-0 transition-all z-20 sidebar">
+        <aside className="h-full glass border-r-0 flex flex-col transition-all z-20 sidebar" style={{ width: `${width}px` }}>
 
             {/* Menu Principal */}
             <div className="p-3 space-y-1 mt-2">
