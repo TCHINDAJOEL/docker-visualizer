@@ -4,6 +4,7 @@ import Sidebar from './components/layout/Sidebar';
 import TopologyMap from './components/features/TopologyMap';
 import InspectorPanel from './components/features/InspectorPanel';
 import Terminal from './components/features/Terminal';
+import CreateContainerModal from './components/features/CreateContainerModal';
 import HostView from './components/features/HostView';
 import ContainersView from './components/features/ContainersView';
 import ImagesView from './components/features/ImagesView';
@@ -235,6 +236,40 @@ const App = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // --- Container Management Handlers ---
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  const handleCreateContainer = (formData) => {
+    const image = images.find(i => i.repository === formData.image) || images[0];
+    const newContainer = {
+      id: generateId(),
+      name: formData.name || `${formData.image}_${generateId().substr(0, 6)}`,
+      image: formData.image,
+      status: 'created',
+      network: formData.network,
+      created: new Date(),
+      stats: { cpu: 0, mem: 0, cpuHistory: new Array(20).fill(0), memHistory: new Array(20).fill(0) },
+      env: formData.env.filter(e => e.key).map(e => `${e.key}=${e.value}`),
+      ports: formData.ports.filter(p => p.host).map(p => `${p.host}:${p.container}`),
+      restartPolicy: formData.restartPolicy,
+      logs: [`[entrypoint] Container created from ${formData.image}`]
+    };
+
+    setContainers(prev => [...prev, newContainer]);
+    addTimelineEvent('create', `Container ${newContainer.name} created`);
+    setHistory(prev => [...prev, { type: 'success', content: `Container ${newContainer.id} created` }]);
+  };
+
+  const handlePauseContainer = (id) => {
+    setContainers(prev => prev.map(c => c.id === id ? { ...c, status: 'paused' } : c));
+    addTimelineEvent('status', `Container ${id} paused`);
+  };
+
+  const handleUnpauseContainer = (id) => {
+    setContainers(prev => prev.map(c => c.id === id ? { ...c, status: 'running' } : c));
+    addTimelineEvent('status', `Container ${id} unpaused`);
+  };
+
   // --- Logique Métier (Actions Docker) ---
 
   const addTimelineEvent = (type, message) => {
@@ -321,6 +356,24 @@ const App = () => {
           newHistory.push({ type: 'output', content: container.name });
         } else {
           newHistory.push({ type: 'error', content: `Error: No such container: ${target}` });
+        }
+      }
+      // PAUSE
+      else if (action === 'pause') {
+        const target = args[2];
+        const container = containers.find(c => c.id.startsWith(target) || c.name === target);
+        if (container) {
+          handlePauseContainer(container.id);
+          newHistory.push({ type: 'output', content: container.name });
+        }
+      }
+      // UNPAUSE
+      else if (action === 'unpause') {
+        const target = args[2];
+        const container = containers.find(c => c.id.startsWith(target) || c.name === target);
+        if (container) {
+          handleUnpauseContainer(container.id);
+          newHistory.push({ type: 'output', content: container.name });
         }
       }
       // RESTART
@@ -546,6 +599,7 @@ const App = () => {
                 setSelectedItem={setSelectedItem}
                 setShowInspector={setShowInspector}
                 executeCommand={executeCommand}
+                onCreate={() => setIsCreateModalOpen(true)}
               />
             </div>
           ) : activeView === 'images' ? (
@@ -618,6 +672,15 @@ const App = () => {
         )}
 
       </div>
+
+      {/* Modals */}
+      <CreateContainerModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        images={images}
+        networks={networks}
+        onCreate={handleCreateContainer}
+      />
     </div>
   );
 };
