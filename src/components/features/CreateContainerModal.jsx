@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { X, Box, Plus, Trash2 } from 'lucide-react';
 
-const CreateContainerModal = ({ isOpen, onClose, images, networks, onCreate }) => {
+const CreateContainerModal = ({ isOpen, onClose, images, networks, volumes, onCreate }) => {
     const [formData, setFormData] = useState({
         name: '',
         image: images[0]?.repository || '',
         network: 'bridge',
         ports: [{ host: '', container: '' }],
         env: [{ key: '', value: '' }],
+        mounts: [],
         restartPolicy: 'no',
         cpuLimit: 0,
         memLimit: 0
@@ -35,6 +36,14 @@ const CreateContainerModal = ({ isOpen, onClose, images, networks, onCreate }) =
         const newEnv = [...formData.env];
         newEnv[idx][field] = val;
         setFormData({ ...formData, env: newEnv });
+    };
+
+    const addMount = () => setFormData({ ...formData, mounts: [...formData.mounts, { source: '', target: '' }] });
+    const removeMount = (idx) => setFormData({ ...formData, mounts: formData.mounts.filter((_, i) => i !== idx) });
+    const updateMount = (idx, field, val) => {
+        const newMounts = [...formData.mounts];
+        newMounts[idx][field] = val;
+        setFormData({ ...formData, mounts: newMounts });
     };
 
     return (
@@ -164,6 +173,43 @@ const CreateContainerModal = ({ isOpen, onClose, images, networks, onCreate }) =
                                         onChange={e => updateEnv(idx, 'value', e.target.value)}
                                     />
                                     <button type="button" onClick={() => removeEnv(idx)} className="text-slate-500 hover:text-red-400">
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Volumes */}
+                    <div>
+                        <div className="flex justify-between items-center mb-2">
+                            <label className="text-xs font-bold text-slate-400 uppercase">Volume Mounts</label>
+                            <button type="button" onClick={addMount} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1">
+                                <Plus size={12} /> Add Volume
+                            </button>
+                        </div>
+                        <div className="space-y-2">
+                            {formData.mounts.map((mount, idx) => (
+                                <div key={idx} className="flex gap-2 items-center">
+                                    <select
+                                        className="flex-1 bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-white focus:border-blue-500 outline-none"
+                                        value={mount.source}
+                                        onChange={e => updateMount(idx, 'source', e.target.value)}
+                                    >
+                                        <option value="" disabled>Select Volume</option>
+                                        {volumes?.map(v => (
+                                            <option key={v.id} value={v.name}>{v.name}</option>
+                                        ))}
+                                    </select>
+                                    <span className="text-slate-500">:</span>
+                                    <input
+                                        type="text"
+                                        placeholder="Container Path (e.g. /data)"
+                                        className="flex-1 bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-white focus:border-blue-500 outline-none"
+                                        value={mount.target}
+                                        onChange={e => updateMount(idx, 'target', e.target.value)}
+                                    />
+                                    <button type="button" onClick={() => removeMount(idx)} className="text-slate-500 hover:text-red-400">
                                         <Trash2 size={16} />
                                     </button>
                                 </div>

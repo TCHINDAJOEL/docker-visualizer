@@ -5,7 +5,7 @@ const TopologyMap = ({ networks, containers, selectedItem, setSelectedItem, setS
     return (
         <div className="relative h-full w-full bg-slate-900 overflow-hidden flex flex-wrap content-start p-8 gap-8 overflow-y-auto">
             {networks.map(net => {
-                const netContainers = containers.filter(c => c.network === net.name);
+                const netContainers = containers.filter(c => c.networks.includes(net.name));
                 return (
                     <div key={net.id} className="border border-slate-700 rounded-xl bg-slate-800/30 p-4 min-w-[300px] min-h-[200px] relative group transition-all hover:border-blue-500/50">
                         <div className="absolute -top-3 left-4 px-2 bg-slate-900 text-blue-400 text-xs font-mono border border-slate-700 rounded flex items-center gap-2">

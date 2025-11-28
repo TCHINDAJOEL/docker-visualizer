@@ -1,7 +1,7 @@
 import React from 'react';
 import { Network, Trash2, Box } from 'lucide-react';
 
-const NetworksView = ({ networks, containers, executeCommand }) => {
+const NetworksView = ({ networks, containers, executeCommand, onCreate }) => {
   return (
     <div className="p-6 overflow-y-auto h-full bg-slate-950">
       <h2 className="text-2xl font-bold mb-6 flex items-center gap-3 text-slate-200">
@@ -11,7 +11,7 @@ const NetworksView = ({ networks, containers, executeCommand }) => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {networks.map(network => {
-          const netContainers = containers.filter(c => c.network === network.name);
+          const netContainers = containers.filter(c => c.networks.includes(network.name));
           const canDelete = !['bridge', 'host', 'none'].includes(network.name) && netContainers.length === 0;
 
           return (
@@ -92,10 +92,7 @@ const NetworksView = ({ networks, containers, executeCommand }) => {
       </div>
 
       <button
-        onClick={() => {
-          const netName = `custom-net-${Date.now()}`;
-          executeCommand(`docker network create ${netName}`, true);
-        }}
+        onClick={onCreate}
         className="mt-6 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors flex items-center gap-2"
       >
         <Network size={16} />

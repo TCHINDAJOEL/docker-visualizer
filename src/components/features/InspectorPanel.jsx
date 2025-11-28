@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Search, ChevronRight, Square, Play, RefreshCw, Terminal, Trash2, Activity, Settings, FileText, Pause, FolderOpen, AlertCircle } from 'lucide-react';
 
-const InspectorPanel = ({ selectedItem, containers, setShowInspector, executeCommand }) => {
+const InspectorPanel = ({ selectedItem, containers, volumes, setShowInspector, executeCommand }) => {
     const [activeTab, setActiveTab] = useState('info'); // info, logs, stats, exec, fs
 
     if (!selectedItem) return (
@@ -12,6 +12,69 @@ const InspectorPanel = ({ selectedItem, containers, setShowInspector, executeCom
     );
 
     const container = containers.find(c => c.id === selectedItem);
+    const volume = volumes?.find(v => v.id === selectedItem || v.name === selectedItem);
+
+    // --- VOLUME INSPECTOR ---
+    if (volume) {
+        return (
+            <div className="h-full flex flex-col bg-slate-800 border-l border-slate-700">
+                <div className="p-4 border-b border-slate-700 flex justify-between items-start bg-slate-900/50">
+                    <div>
+                        <h2 className="font-bold text-lg text-white flex items-center gap-2">
+                            <Database size={18} className="text-purple-400" />
+                            {volume.name}
+                        </h2>
+                        <div className="font-mono text-xs text-slate-400 mt-1">{volume.driver}</div>
+                    </div>
+                    <button onClick={() => setShowInspector(false)} className="text-slate-400 hover:text-white"><ChevronRight size={18} /></button>
+                </div>
+
+                <div className="flex border-b border-slate-700">
+                    <button className="flex-1 py-2 text-xs font-medium uppercase tracking-wider border-b-2 border-purple-500 text-purple-400 bg-slate-800">
+                        Info
+                    </button>
+                </div>
+
+                <div className="p-4 space-y-4">
+                    <div className="bg-slate-900 rounded border border-slate-700 text-xs font-mono p-3 space-y-2">
+                        <div className="flex justify-between">
+                            <span className="text-slate-500">Created:</span>
+                            <span className="text-slate-300">{new Date(volume.created).toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-slate-500">Mountpoint:</span>
+                            <span className="text-slate-300 truncate max-w-[150px]" title={volume.mountpoint}>{volume.mountpoint}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-slate-500">Size:</span>
+                            <span className="text-purple-300">{volume.size}</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Simulated Content</h3>
+                        <div className="bg-black rounded border border-slate-700 p-2 font-mono text-xs text-slate-300">
+                            <div className="flex items-center gap-2 text-blue-400 mb-1">
+                                <FolderOpen size={14} /> <span>_data/</span>
+                            </div>
+                            <div className="pl-4 space-y-1">
+                                <div className="flex items-center gap-2">
+                                    <FileText size={12} className="text-slate-500" /> db.sqlite
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <FileText size={12} className="text-slate-500" /> config.json
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <FileText size={12} className="text-slate-500" /> data.bin
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     if (!container) return null; // Item deleted
 
     return (
@@ -22,7 +85,7 @@ const InspectorPanel = ({ selectedItem, containers, setShowInspector, executeCom
                     <h2 className="font-bold text-lg text-white flex items-center gap-2">
                         {container.name}
                         <span className={`text-[10px] px-2 py-0.5 rounded-full uppercase ${container.status === 'running' ? 'bg-green-500/20 text-green-400' :
-                                container.status === 'paused' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'
+                            container.status === 'paused' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'
                             }`}>
                             {container.status}
                         </span>
@@ -108,8 +171,8 @@ const InspectorPanel = ({ selectedItem, containers, setShowInspector, executeCom
                                 <span className="text-yellow-300">{container.image}</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-slate-500">Network:</span>
-                                <span className="text-blue-300">{container.network}</span>
+                                <span className="text-slate-500">Networks:</span>
+                                <span className="text-blue-300 text-right">{container.networks?.join(', ') || 'none'}</span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-slate-500">IP Address:</span>
@@ -140,6 +203,19 @@ const InspectorPanel = ({ selectedItem, containers, setShowInspector, executeCom
                                 {container.ports?.map((p, i) => (
                                     <div key={i} className="text-slate-300">{p}</div>
                                 )) || <span className="text-slate-600 italic">No ports mapped</span>}
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Mounts</h3>
+                            <div className="bg-slate-900 rounded border border-slate-700 p-2 text-xs font-mono space-y-1">
+                                {container.mounts?.map((m, i) => (
+                                    <div key={i} className="text-slate-300 flex justify-between">
+                                        <span className="text-purple-400">{m.source}</span>
+                                        <span className="text-slate-500">→</span>
+                                        <span>{m.target}</span>
+                                    </div>
+                                )) || <span className="text-slate-600 italic">No volumes mounted</span>}
                             </div>
                         </div>
                     </div>

@@ -5,6 +5,8 @@ import TopologyMap from './components/features/TopologyMap';
 import InspectorPanel from './components/features/InspectorPanel';
 import Terminal from './components/features/Terminal';
 import CreateContainerModal from './components/features/CreateContainerModal';
+import CreateNetworkModal from './components/features/CreateNetworkModal';
+import CreateVolumeModal from './components/features/CreateVolumeModal';
 import HostView from './components/features/HostView';
 import ContainersView from './components/features/ContainersView';
 import ImagesView from './components/features/ImagesView';
@@ -23,8 +25,11 @@ const App = () => {
   // Données Docker
   const [containers, setContainers] = useState([]);
   const [networks, setNetworks] = useState([
-    { id: 'net1', name: 'bridge', driver: 'bridge', scope: 'local', subnet: '172.17.0.0/16' },
-    { id: 'net2', name: 'host', driver: 'host', scope: 'local', subnet: 'N/A' }
+    { id: 'net1', name: 'bridge', driver: 'bridge', scope: 'local', subnet: '172.17.0.0/16', gateway: '172.17.0.1' },
+    { id: 'net2', name: 'host', driver: 'host', scope: 'local', subnet: 'N/A', gateway: '' }
+  ]);
+  const [volumes, setVolumes] = useState([
+    { id: generateId(), name: 'my-data', driver: 'local', mountpoint: '/var/lib/docker/volumes/my-data/_data', created: new Date().toISOString(), labels: [], size: '0B' }
   ]);
   const [images, setImages] = useState(MOCK_IMAGES);
   const [timeline, setTimeline] = useState([]); // Historique des événements
@@ -75,6 +80,9 @@ const App = () => {
 
     // Remove unused images (mock logic: remove images not used by running containers)
     addTimelineEvent('delete', 'Pruned dangling images and build cache');
+
+    // Prune volumes
+    handlePruneVolumes();
   };
 
   const handleSecurityCheck = () => {
@@ -238,6 +246,8 @@ const App = () => {
 
   // --- Container Management Handlers ---
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isCreateNetworkModalOpen, setIsCreateNetworkModalOpen] = useState(false);
+  const [isCreateVolumeModalOpen, setIsCreateVolumeModalOpen] = useState(false);
 
   const handleCreateContainer = (formData) => {
     const image = images.find(i => i.repository === formData.image) || images[0];
@@ -246,11 +256,12 @@ const App = () => {
       name: formData.name || `${formData.image}_${generateId().substr(0, 6)}`,
       image: formData.image,
       status: 'created',
-      network: formData.network,
+      networks: [formData.network], // Changed to array
       created: new Date(),
       stats: { cpu: 0, mem: 0, cpuHistory: new Array(20).fill(0), memHistory: new Array(20).fill(0) },
       env: formData.env.filter(e => e.key).map(e => `${e.key}=${e.value}`),
       ports: formData.ports.filter(p => p.host).map(p => `${p.host}:${p.container}`),
+      mounts: formData.mounts || [], // Add mounts
       restartPolicy: formData.restartPolicy,
       logs: [`[entrypoint] Container created from ${formData.image}`]
     };
@@ -258,6 +269,87 @@ const App = () => {
     setContainers(prev => [...prev, newContainer]);
     addTimelineEvent('create', `Container ${newContainer.name} created`);
     setHistory(prev => [...prev, { type: 'success', content: `Container ${newContainer.id} created` }]);
+  };
+
+  // --- Network Management Handlers ---
+  const handleCreateNetwork = (formData) => {
+    const newNetwork = {
+      id: generateId(),
+      name: formData.name,
+      driver: formData.driver,
+      scope: formData.scope,
+      subnet: formData.subnet || `172.${18 + networks.length}.0.0/16`,
+      gateway: formData.gateway || `172.${18 + networks.length}.0.1`,
+      internal: formData.internal,
+      attachable: formData.attachable
+    };
+    setNetworks(prev => [...prev, newNetwork]);
+    addTimelineEvent('network', `Network ${newNetwork.name} created`);
+    setHistory(prev => [...prev, { type: 'success', content: `Network ${newNetwork.id} created` }]);
+  };
+
+  const handleConnectNetwork = (containerId, networkName) => {
+    setContainers(prev => prev.map(c => {
+      if (c.id === containerId && !c.networks.includes(networkName)) {
+        return { ...c, networks: [...c.networks, networkName] };
+      }
+      return c;
+    }));
+    addTimelineEvent('network', `Container connected to ${networkName}`);
+  };
+
+  const handleDisconnectNetwork = (containerId, networkName) => {
+    setContainers(prev => prev.map(c => {
+      if (c.id === containerId) {
+        return { ...c, networks: c.networks.filter(n => n !== networkName) };
+      }
+      return c;
+    }));
+    addTimelineEvent('network', `Container disconnected from ${networkName}`);
+  };
+
+  // --- Volume Management Handlers ---
+  const handleCreateVolume = (formData) => {
+    const newVolume = {
+      id: generateId(),
+      name: formData.name,
+      driver: formData.driver,
+      mountpoint: `/var/lib/docker/volumes/${formData.name}/_data`,
+      created: new Date().toISOString(),
+      labels: formData.labels,
+      size: '0B'
+    };
+    setVolumes(prev => [...prev, newVolume]);
+    addTimelineEvent('volume', `Volume ${newVolume.name} created`);
+    setHistory(prev => [...prev, { type: 'success', content: `Volume ${newVolume.name} created` }]);
+  };
+
+  const handleRemoveVolume = (volumeName) => {
+    const vol = volumes.find(v => v.name === volumeName || v.id === volumeName);
+    if (!vol) return;
+
+    // Check usage
+    const isUsed = containers.some(c => c.mounts?.some(m => m.source === vol.name));
+    if (isUsed) {
+      setHistory(prev => [...prev, { type: 'error', content: `Error: volume ${vol.name} is in use` }]);
+      return;
+    }
+
+    setVolumes(prev => prev.filter(v => v.id !== vol.id));
+    addTimelineEvent('delete', `Volume ${vol.name} deleted`);
+    setHistory(prev => [...prev, { type: 'output', content: vol.name }]);
+  };
+
+  const handlePruneVolumes = () => {
+    const usedVolumeNames = new Set();
+    containers.forEach(c => c.mounts?.forEach(m => usedVolumeNames.add(m.source)));
+
+    const unusedVolumes = volumes.filter(v => !usedVolumeNames.has(v.name));
+    if (unusedVolumes.length > 0) {
+      setVolumes(prev => prev.filter(v => usedVolumeNames.has(v.name)));
+      addTimelineEvent('delete', `Pruned ${unusedVolumes.length} volumes`);
+      setHistory(prev => [...prev, { type: 'info', content: `Deleted Volumes: ${unusedVolumes.map(v => v.name).join(', ')}` }]);
+    }
   };
 
   const handlePauseContainer = (id) => {
@@ -313,7 +405,7 @@ const App = () => {
           name: containerName,
           image: image.repository,
           status: 'running',
-          network: networkName,
+          networks: [networkName], // Changed to array
           created: new Date(),
           stats: { cpu: 0, mem: 0, cpuHistory: new Array(20).fill(0), memHistory: new Array(20).fill(0) },
           env: ['PATH=/usr/local/sbin:/usr/local/bin', 'LANG=C.UTF-8'],
@@ -405,12 +497,17 @@ const App = () => {
         const target = args[2];
         const container = containers.find(c => c.id.startsWith(target) || c.name === target);
         if (container) {
+          const networkSettings = {};
+          container.networks.forEach(net => {
+            networkSettings[net] = { IPAddress: `172.17.0.${containers.findIndex(c2 => c2.id === container.id) + 2}` };
+          });
+
           const inspectData = JSON.stringify({
             Id: container.id,
             Name: container.name,
             Image: container.image,
             State: { Status: container.status, Running: container.status === 'running' },
-            NetworkSettings: { Networks: { [container.network]: { IPAddress: `172.17.0.${containers.findIndex(c2 => c2.id === container.id) + 2}` } } }
+            NetworkSettings: { Networks: networkSettings }
           }, null, 2);
           newHistory.push({ type: 'output', content: inspectData });
         } else {
@@ -451,12 +548,40 @@ const App = () => {
       // NETWORK CREATE
       else if (action === 'network' && args[2] === 'create') {
         const netName = args[3];
-        setNetworks(prev => [...prev, { id: generateId(), name: netName, driver: 'bridge', scope: 'local', subnet: `172.${18 + networks.length}.0.0/16` }]);
-        addTimelineEvent('network', `Réseau ${netName} créé`);
+        handleCreateNetwork({ name: netName, driver: 'bridge', scope: 'local' });
         newHistory.push({ type: 'output', content: generateId() });
 
         if (activeScenario && activeScenario.steps[currentStepIndex]?.cmd.includes('network create')) {
           setCurrentStepIndex(prev => prev + 1);
+        }
+      }
+      // NETWORK CONNECT
+      else if (action === 'network' && args[2] === 'connect') {
+        const netName = args[3];
+        const containerName = args[4];
+        const container = containers.find(c => c.name === containerName || c.id.startsWith(containerName));
+        const network = networks.find(n => n.name === netName || n.id.startsWith(netName));
+
+        if (!container) {
+          newHistory.push({ type: 'error', content: `Error: No such container: ${containerName}` });
+        } else if (!network) {
+          newHistory.push({ type: 'error', content: `Error: No such network: ${netName}` });
+        } else {
+          handleConnectNetwork(container.id, network.name);
+          newHistory.push({ type: 'output', content: '' }); // Success is silent usually
+        }
+      }
+      // NETWORK DISCONNECT
+      else if (action === 'network' && args[2] === 'disconnect') {
+        const netName = args[3];
+        const containerName = args[4];
+        const container = containers.find(c => c.name === containerName || c.id.startsWith(containerName));
+
+        if (!container) {
+          newHistory.push({ type: 'error', content: `Error: No such container: ${containerName}` });
+        } else {
+          handleDisconnectNetwork(container.id, netName);
+          newHistory.push({ type: 'output', content: '' });
         }
       }
       // PS
@@ -493,7 +618,7 @@ const App = () => {
           if (['bridge', 'host', 'none'].includes(network.name)) {
             newHistory.push({ type: 'error', content: `Error: Cannot remove system network ${network.name}` });
           } else {
-            const connectedContainers = containers.filter(c => c.network === network.name);
+            const connectedContainers = containers.filter(c => c.networks.includes(network.name));
             if (connectedContainers.length > 0) {
               newHistory.push({ type: 'error', content: `Error: network ${network.name} has active endpoints` });
             } else {
@@ -504,6 +629,40 @@ const App = () => {
           }
         } else {
           newHistory.push({ type: 'error', content: `Error: No such network: ${netId}` });
+        }
+      }
+      // VOLUME COMMANDS
+      else if (action === 'volume') {
+        const subCmd = args[2];
+
+        if (subCmd === 'create') {
+          const volName = args[3];
+          handleCreateVolume({ name: volName, driver: 'local', labels: [] });
+        }
+        else if (subCmd === 'ls') {
+          newHistory.push({ type: 'output', content: 'DRIVER    VOLUME NAME' });
+          volumes.forEach(v => {
+            newHistory.push({ type: 'output', content: `${v.driver.padEnd(9)} ${v.name}` });
+          });
+        }
+        else if (subCmd === 'rm') {
+          const volName = args[3];
+          handleRemoveVolume(volName);
+        }
+        else if (subCmd === 'prune') {
+          handlePruneVolumes();
+          newHistory.push({ type: 'output', content: 'Deleted Volumes:' });
+          // Note: The handler updates state, but we can't easily show the exact list here without refactoring.
+          // For now, we rely on the timeline event.
+        }
+        else if (subCmd === 'inspect') {
+          const volName = args[3];
+          const vol = volumes.find(v => v.name === volName);
+          if (vol) {
+            newHistory.push({ type: 'output', content: JSON.stringify([vol], null, 2) });
+          } else {
+            newHistory.push({ type: 'error', content: `Error: No such volume: ${volName}` });
+          }
         }
       }
       // RMI (remove image)
@@ -549,6 +708,14 @@ const App = () => {
       newHistory.push({ type: 'info', content: '  docker network create <name>' });
       newHistory.push({ type: 'info', content: '  docker network ls' });
       newHistory.push({ type: 'info', content: '  docker network rm <network>' });
+      newHistory.push({ type: 'info', content: '  docker network connect <network> <container>' });
+      newHistory.push({ type: 'info', content: '  docker network disconnect <network> <container>' });
+      newHistory.push({ type: 'info', content: 'Volumes:' });
+      newHistory.push({ type: 'info', content: '  docker volume create <name>' });
+      newHistory.push({ type: 'info', content: '  docker volume ls' });
+      newHistory.push({ type: 'info', content: '  docker volume rm <name>' });
+      newHistory.push({ type: 'info', content: '  docker volume inspect <name>' });
+      newHistory.push({ type: 'info', content: '  docker volume prune' });
       newHistory.push({ type: 'info', content: 'Other:' });
       newHistory.push({ type: 'info', content: '  clear - Effacer le terminal' });
     } else {
@@ -620,11 +787,17 @@ const App = () => {
                 networks={networks}
                 containers={containers}
                 executeCommand={executeCommand}
+                onCreate={() => setIsCreateNetworkModalOpen(true)}
               />
             </div>
           ) : activeView === 'volumes' ? (
             <div className="flex-1 relative overflow-hidden">
-              <VolumesView />
+              <VolumesView
+                volumes={volumes}
+                containers={containers}
+                executeCommand={executeCommand}
+                onCreate={() => setIsCreateVolumeModalOpen(true)}
+              />
             </div>
           ) : (
             <>
@@ -665,6 +838,7 @@ const App = () => {
             <InspectorPanel
               selectedItem={selectedItem}
               containers={containers}
+              volumes={volumes}
               setShowInspector={setShowInspector}
               executeCommand={executeCommand}
             />
@@ -679,7 +853,18 @@ const App = () => {
         onClose={() => setIsCreateModalOpen(false)}
         images={images}
         networks={networks}
+        volumes={volumes}
         onCreate={handleCreateContainer}
+      />
+      <CreateNetworkModal
+        isOpen={isCreateNetworkModalOpen}
+        onClose={() => setIsCreateNetworkModalOpen(false)}
+        onCreate={handleCreateNetwork}
+      />
+      <CreateVolumeModal
+        isOpen={isCreateVolumeModalOpen}
+        onClose={() => setIsCreateVolumeModalOpen(false)}
+        onCreate={handleCreateVolume}
       />
     </div>
   );
