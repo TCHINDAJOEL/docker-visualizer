@@ -13,13 +13,15 @@ import ImagesView from './components/features/ImagesView';
 import NetworksView from './components/features/NetworksView';
 import VolumesView from './components/features/VolumesView';
 import MonitoringView from './components/features/MonitoringView';
+import StacksView from './components/features/StacksView';
 import { MOCK_IMAGES } from './data/mockData';
 import { generateId } from './utils/helpers';
+import { parseComposeFile } from './utils/yamlParser';
 
 const App = () => {
   // --- État Global ---
   const [mode, setMode] = useState('beginner'); // 'beginner' | 'expert'
-  const [activeView, setActiveView] = useState('dashboard'); // 'dashboard', 'containers', 'images', 'networks', 'monitoring'
+  const [activeView, setActiveView] = useState('dashboard'); // 'dashboard', 'containers', 'images', 'networks', 'monitoring', 'stacks'
   const [selectedItem, setSelectedItem] = useState(null); // ID de l'élément inspecté
   const [showInspector, setShowInspector] = useState(true);
 
@@ -33,7 +35,107 @@ const App = () => {
     { id: generateId(), name: 'my-data', driver: 'local', mountpoint: '/var/lib/docker/volumes/my-data/_data', created: new Date().toISOString(), labels: [], size: '0B' }
   ]);
   const [images, setImages] = useState(MOCK_IMAGES);
+  const [stacks, setStacks] = useState([
+    {
+      id: 'stack1',
+      name: 'web-stack',
+      status: 'inactive',
+      fileContent: `version: "3.8"\n\nservices:\n  web:\n    image: nginx:latest\n    ports:\n      - "8080:80"\n  redis:\n    image: redis:alpine`
+    }
+  ]);
   const [timeline, setTimeline] = useState([]); // Historique des événements
+
+  // ... (Host Info State omitted for brevity, keep existing)
+
+  // ... (Existing handlers: handlePrune, handleSecurityCheck, Image handlers)
+
+  // --- Stack Management Handlers ---
+  const handleDeployStack = (stackId) => {
+    const stack = stacks.find(s => s.id === stackId);
+    if (!stack) return;
+
+    addTimelineEvent('info', `Deploying stack ${stack.name}...`);
+    setHistory(prev => [...prev, { type: 'info', content: `Deploying stack ${stack.name}...` }]);
+
+    const parsed = parseComposeFile(stack.fileContent);
+    if (!parsed) {
+      setHistory(prev => [...prev, { type: 'error', content: `Failed to parse docker-compose.yml for ${stack.name}` }]);
+      return;
+    }
+
+    // Create resources
+    const newContainers = [];
+    Object.values(parsed.services).forEach(service => {
+      const containerName = `${stack.name}_${service.name}_1`;
+      const newContainer = {
+        id: generateId(),
+        name: containerName,
+        image: service.image || 'ubuntu:latest',
+        status: 'running',
+        networks: service.networks?.length ? service.networks : ['bridge'],
+        created: new Date(),
+        stats: { cpu: 0, mem: 0, cpuHistory: new Array(20).fill(0), memHistory: new Array(20).fill(0) },
+        health: { status: 'healthy', lastCheck: new Date() },
+        env: service.environment || [],
+        ports: service.ports || [],
+        mounts: service.volumes?.map(v => ({ source: v.split(':')[0], target: v.split(':')[1] })) || [],
+        restartPolicy: service.restart || 'no',
+        restartCount: 0,
+        logs: [`[entrypoint] Container ${containerName} started`]
+      };
+      newContainers.push(newContainer);
+    });
+
+    setTimeout(() => {
+      setContainers(prev => [...prev, ...newContainers]);
+      setStacks(prev => prev.map(s => s.id === stackId ? { ...s, status: 'active', services: parsed.services } : s));
+      addTimelineEvent('success', `Stack ${stack.name} deployed successfully`);
+      setHistory(prev => [...prev, { type: 'success', content: `Stack ${stack.name} deployed with ${newContainers.length} services` }]);
+    }, 1500);
+  };
+
+  const handleStopStack = (stackId) => {
+    const stack = stacks.find(s => s.id === stackId);
+    if (!stack) return;
+
+    addTimelineEvent('info', `Stopping stack ${stack.name}...`);
+
+    // Find containers belonging to this stack (simple name check)
+    const stackContainers = containers.filter(c => c.name.startsWith(`${stack.name}_`));
+
+    setTimeout(() => {
+      setContainers(prev => prev.filter(c => !c.name.startsWith(`${stack.name}_`))); // Remove them for "Stop" in this mock, or just stop them? 
+      // "Stop" usually means stop but keep. "Down" means remove. Let's assume "Stop" just stops them.
+      // But for simplicity in this mock, let's treat "Stop" button as "Down" (remove containers) or update status to 'exited'.
+      // Let's update status to 'exited'.
+      setContainers(prev => prev.map(c => c.name.startsWith(`${stack.name}_`) ? { ...c, status: 'exited' } : c));
+
+      setStacks(prev => prev.map(s => s.id === stackId ? { ...s, status: 'inactive' } : s));
+      addTimelineEvent('info', `Stack ${stack.name} stopped`);
+    }, 1000);
+  };
+
+  const handleRemoveStack = (stackId) => {
+    const stack = stacks.find(s => s.id === stackId);
+    if (!stack) return;
+
+    // Remove containers
+    setContainers(prev => prev.filter(c => !c.name.startsWith(`${stack.name}_`)));
+    setStacks(prev => prev.filter(s => s.id !== stackId));
+    addTimelineEvent('delete', `Stack ${stack.name} removed`);
+  };
+
+  const handleCreateStack = () => {
+    const newStack = {
+      id: generateId(),
+      name: `stack-${stacks.length + 1}`,
+      status: 'inactive',
+      fileContent: 'version: "3.8"\n\nservices:\n  app:\n    image: nginx:alpine'
+    };
+    setStacks(prev => [...prev, newStack]);
+  };
+
+  // ... (Rest of component)
 
   // Host Info State
   const [hostInfo, setHostInfo] = useState({
@@ -829,6 +931,16 @@ const App = () => {
               <MonitoringView
                 containers={containers}
                 timeline={timeline}
+              />
+            </div>
+          ) : activeView === 'stacks' ? (
+            <div className="flex-1 relative overflow-hidden">
+              <StacksView
+                stacks={stacks}
+                onDeploy={handleDeployStack}
+                onStop={handleStopStack}
+                onRemove={handleRemoveStack}
+                onCreate={handleCreateStack}
               />
             </div>
           ) : (
