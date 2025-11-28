@@ -1,94 +1,88 @@
 export const SCENARIOS = [
     // ========== NIVEAU DÉBUTANT ==========
     {
-        id: 'scenario-first-container',
-        title: '1. Mon Premier Conteneur',
-        description: 'Créez et gérez votre premier conteneur Docker avec nginx.',
+        id: 'scenario-intro',
+        title: '1. Hello World Docker',
+        description: 'Votre première interaction avec Docker. Lancez un conteneur simple.',
         difficulty: 'Beginner',
-        icon: 'Server',
+        icon: 'Box',
         steps: [
             {
                 id: 'step1',
-                instruction: 'Créez un conteneur nginx nommé "mon-web"',
-                hint: 'Utilisez docker run avec l\'option --name et -d pour le mode détaché',
-                cmd: 'docker run -d --name mon-web nginx',
-                validation: (state) => state.containers.some(c => c.name === 'mon-web' && c.status === 'running')
+                instruction: 'Lancez votre premier conteneur "hello-world"',
+                hint: 'Utilisez la commande docker run hello-world',
+                cmd: 'docker run hello-world',
+                validation: (state) => state.containers.some(c => c.image === 'hello-world')
             },
             {
                 id: 'step2',
-                instruction: 'Listez tous les conteneurs en cours d\'exécution',
-                hint: 'La commande docker ps affiche les conteneurs actifs',
-                cmd: 'docker ps',
+                instruction: 'Listez les conteneurs pour voir qu\'il a tourné',
+                hint: 'Le conteneur s\'arrête après exécution, utilisez -a pour tout voir',
+                cmd: 'docker ps -a',
                 autoAdvance: false
             },
             {
                 id: 'step3',
-                instruction: 'Arrêtez le conteneur mon-web',
-                hint: 'Utilisez docker stop suivi du nom du conteneur',
-                cmd: 'docker stop mon-web',
-                validation: (state) => {
-                    const container = state.containers.find(c => c.name === 'mon-web');
-                    return container && container.status === 'exited';
-                }
-            },
-            {
-                id: 'step4',
-                instruction: 'Supprimez le conteneur arrêté',
-                hint: 'docker rm permet de supprimer un conteneur arrêté',
-                cmd: 'docker rm mon-web',
-                validation: (state) => !state.containers.some(c => c.name === 'mon-web')
+                instruction: 'Supprimez le conteneur pour nettoyer',
+                hint: 'Utilisez l\'ID ou le nom du conteneur',
+                cmd: 'docker rm', // Validation flexible sur le rm
+                validation: (state) => !state.containers.some(c => c.image === 'hello-world')
             }
         ]
     },
     {
-        id: 'scenario-batch',
-        title: '2. Travail Batch (Éphémère)',
-        description: 'Exécutez un conteneur éphémère qui effectue une tâche et se termine.',
+        id: 'scenario-basic-commands',
+        title: '2. Commandes de Base',
+        description: 'Maîtrisez les commandes essentielles : ps, stop, start, restart.',
         difficulty: 'Beginner',
         icon: 'Terminal',
         steps: [
             {
                 id: 'step1',
-                instruction: 'Exécutez un conteneur qui se termine immédiatement avec un message',
-                hint: 'Sans l\'option -d, le conteneur s\'exécute au premier plan et se termine',
-                cmd: 'docker run --name batch-job alpine echo "Job Done"',
-                validation: (state) => {
-                    const container = state.containers.find(c => c.name === 'batch-job');
-                    return container && container.status === 'exited';
-                }
+                instruction: 'Lancez un conteneur Nginx en arrière-plan (détaché)',
+                hint: 'L\'option -d lance le conteneur en mode détaché',
+                cmd: 'docker run -d --name my-nginx nginx',
+                validation: (state) => state.containers.some(c => c.name === 'my-nginx' && c.status === 'running')
             },
             {
                 id: 'step2',
-                instruction: 'Inspectez les logs pour voir le message',
-                hint: 'docker logs affiche la sortie standard du conteneur',
-                cmd: 'docker logs batch-job',
-                autoAdvance: false
+                instruction: 'Arrêtez le conteneur',
+                hint: 'docker stop arrête un conteneur en cours d\'exécution',
+                cmd: 'docker stop my-nginx',
+                validation: (state) => state.containers.some(c => c.name === 'my-nginx' && c.status === 'exited')
             },
             {
                 id: 'step3',
-                instruction: 'Supprimez le conteneur terminé',
-                hint: 'Un conteneur exited peut être supprimé sans force',
-                cmd: 'docker rm batch-job',
-                validation: (state) => !state.containers.some(c => c.name === 'batch-job')
+                instruction: 'Redémarrez le conteneur',
+                hint: 'docker start relance un conteneur arrêté',
+                cmd: 'docker start my-nginx',
+                validation: (state) => state.containers.some(c => c.name === 'my-nginx' && c.status === 'running')
+            },
+            {
+                id: 'step4',
+                instruction: 'Supprimez le conteneur (il doit être arrêté ou forcé)',
+                hint: 'docker rm -f force la suppression',
+                cmd: 'docker rm -f my-nginx',
+                validation: (state) => !state.containers.some(c => c.name === 'my-nginx')
             }
         ]
     },
     {
-        id: 'scenario-ports',
-        title: '3. Exposition de Ports',
-        description: 'Apprenez à exposer des ports pour accéder à vos applications.',
+        id: 'scenario-web-server',
+        title: '3. Serveur Web Simple',
+        description: 'Hébergez une page web et accédez-y via un port.',
         difficulty: 'Beginner',
-        icon: 'Network',
+        icon: 'Globe',
         steps: [
             {
                 id: 'step1',
-                instruction: 'Créez un serveur web accessible sur le port 8080',
-                hint: 'L\'option -p mappe un port host:container',
+                instruction: 'Lancez un serveur web Nginx avec le port 8080 ouvert',
+                hint: 'L\'option -p 8080:80 mappe le port 8080 de l\'hôte vers le 80 du conteneur',
                 cmd: 'docker run -d --name web-server -p 8080:80 nginx',
                 validation: (state) => {
                     const container = state.containers.find(c => c.name === 'web-server');
                     return container && container.status === 'running' &&
-                           container.ports && container.ports.some(p => p.includes('8080'));
+                        container.ports && container.ports.some(p => p.includes('8080'));
                 }
             },
             {
@@ -122,7 +116,7 @@ export const SCENARIOS = [
                 validation: (state) => {
                     const container = state.containers.find(c => c.name === 'app-prod');
                     return container && container.env &&
-                           container.env.some(e => e.includes('APP_ENV=production'));
+                        container.env.some(e => e.includes('APP_ENV=production'));
                 }
             },
             {
@@ -174,7 +168,7 @@ export const SCENARIOS = [
                 validation: (state) => {
                     const container = state.containers.find(c => c.name === 'app-with-data');
                     return container && container.mounts &&
-                           container.mounts.some(m => m.source === 'data-vol');
+                        container.mounts.some(m => m.source === 'data-vol');
                 }
             },
             {
@@ -307,8 +301,8 @@ export const SCENARIOS = [
                 validation: (state) => {
                     const container = state.containers.find(c => c.name === 'postgres-db');
                     return container &&
-                           container.networks.includes('db-network') &&
-                           container.mounts?.some(m => m.source === 'db-data');
+                        container.networks.includes('db-network') &&
+                        container.mounts?.some(m => m.source === 'db-data');
                 }
             },
             {
@@ -365,8 +359,8 @@ export const SCENARIOS = [
                     const wp = state.containers.find(c => c.name === 'wordpress');
                     const mysql = state.containers.find(c => c.name === 'wp-mysql');
                     return wp && mysql &&
-                           wp.networks.includes('wordpress-net') &&
-                           mysql.networks.includes('wordpress-net');
+                        wp.networks.includes('wordpress-net') &&
+                        mysql.networks.includes('wordpress-net');
                 }
             },
             {
@@ -417,8 +411,8 @@ export const SCENARIOS = [
                 validation: (state) => {
                     const container = state.containers.find(c => c.name === 'api');
                     return container &&
-                           container.networks.includes('frontend-net') &&
-                           container.networks.includes('backend-net');
+                        container.networks.includes('frontend-net') &&
+                        container.networks.includes('backend-net');
                 }
             },
             {
@@ -528,6 +522,350 @@ export const SCENARIOS = [
                 id: 'step6',
                 instruction: 'Vérifiez votre environnement propre',
                 hint: 'Félicitations ! Vous savez maintenant maintenir un environnement Docker propre.',
+                autoAdvance: false
+            }
+        ]
+    },
+
+    // ========== NIVEAU EXPERT - PRODUCTION ==========
+    {
+        id: 'scenario-ml-serving',
+        title: '13. Déploiement d\'IA - TensorFlow Serving',
+        description: 'Déployez un modèle de Machine Learning avec TensorFlow Serving et une API REST.',
+        difficulty: 'Advanced',
+        icon: 'Activity',
+        steps: [
+            {
+                id: 'step1',
+                instruction: 'Créez un réseau ml-network pour isoler l\'infrastructure ML',
+                hint: 'Les services ML doivent être isolés pour la sécurité',
+                cmd: 'docker network create ml-network',
+                validation: (state) => state.networks.some(n => n.name === 'ml-network')
+            },
+            {
+                id: 'step2',
+                instruction: 'Lancez TensorFlow Serving (simule le serveur de modèles)',
+                hint: 'TensorFlow Serving expose les modèles via gRPC et REST API',
+                cmd: 'docker run -d --name tf-serving --net ml-network -p 8501:8501 -e MODEL_NAME=my_model -e MODEL_CONFIG_FILE=/models/models.config tensorflow/serving',
+                validation: (state) => state.containers.some(c =>
+                    c.name === 'tf-serving' && c.networks.includes('ml-network')
+                )
+            },
+            {
+                id: 'step3',
+                instruction: 'Lancez une API Gateway pour router les requêtes',
+                hint: 'L\'API Gateway gère l\'authentification et le load balancing',
+                cmd: 'docker run -d --name ml-gateway --net ml-network -p 8000:80 -e TF_SERVING_HOST=tf-serving nginx',
+                validation: (state) => state.containers.some(c => c.name === 'ml-gateway')
+            },
+            {
+                id: 'step4',
+                instruction: 'Ajoutez un cache Redis pour les prédictions fréquentes',
+                hint: 'Redis réduit la latence en cachant les résultats courants',
+                cmd: 'docker run -d --name ml-cache --net ml-network redis',
+                validation: (state) => state.containers.some(c =>
+                    c.name === 'ml-cache' && c.image.includes('redis')
+                )
+            },
+            {
+                id: 'step5',
+                instruction: 'Vérifiez votre stack ML dans la topologie',
+                hint: 'Vous devriez voir : Gateway → TF Serving → Cache (Redis)',
+                autoAdvance: false
+            }
+        ]
+    },
+    {
+        id: 'scenario-db-replication',
+        title: '14. Réplication PostgreSQL Master-Slave',
+        description: 'Configurez une réplication PostgreSQL pour la haute disponibilité.',
+        difficulty: 'Advanced',
+        icon: 'Database',
+        steps: [
+            {
+                id: 'step1',
+                instruction: 'Créez un réseau db-replication',
+                cmd: 'docker network create db-replication',
+                validation: (state) => state.networks.some(n => n.name === 'db-replication')
+            },
+            {
+                id: 'step2',
+                instruction: 'Créez un volume pour le master',
+                cmd: 'docker volume create pg-master-data',
+                validation: (state) => state.volumes.some(v => v.name === 'pg-master-data')
+            },
+            {
+                id: 'step3',
+                instruction: 'Lancez PostgreSQL Master',
+                hint: 'Le master accepte les écritures (mode PRIMARY)',
+                cmd: 'docker run -d --name pg-master --net db-replication -v pg-master-data:/var/lib/postgresql/data -e POSTGRES_PASSWORD=master123 -e REPLICATION_MODE=master postgres',
+                validation: (state) => {
+                    const master = state.containers.find(c => c.name === 'pg-master');
+                    return master &&
+                        master.networks.includes('db-replication') &&
+                        master.mounts?.some(m => m.source === 'pg-master-data');
+                }
+            },
+            {
+                id: 'step4',
+                instruction: 'Créez un volume pour le slave 1',
+                cmd: 'docker volume create pg-slave1-data',
+                validation: (state) => state.volumes.some(v => v.name === 'pg-slave1-data')
+            },
+            {
+                id: 'step5',
+                instruction: 'Lancez PostgreSQL Slave 1 (réplique lecture seule)',
+                hint: 'Le slave 1 réplique les données du master',
+                cmd: 'docker run -d --name pg-slave1 --net db-replication -v pg-slave1-data:/var/lib/postgresql/data -e POSTGRES_PASSWORD=slave123 -e REPLICATION_MODE=slave -e MASTER_HOST=pg-master postgres',
+                validation: (state) => state.containers.some(c => c.name === 'pg-slave1')
+            },
+            {
+                id: 'step6',
+                instruction: 'Lancez PostgreSQL Slave 2 pour load balancing',
+                cmd: 'docker run -d --name pg-slave2 --net db-replication -e POSTGRES_PASSWORD=slave123 -e REPLICATION_MODE=slave -e MASTER_HOST=pg-master postgres',
+                validation: (state) => state.containers.some(c => c.name === 'pg-slave2')
+            },
+            {
+                id: 'step7',
+                instruction: 'Ajoutez PgBouncer (connection pooler)',
+                hint: 'PgBouncer gère les connexions et distribue les requêtes de lecture',
+                cmd: 'docker run -d --name pgbouncer --net db-replication -p 6432:6432 -e DB_HOST=pg-master -e DB_READ_HOST=pg-slave1,pg-slave2 postgres',
+                validation: (state) => state.containers.some(c => c.name === 'pgbouncer')
+            },
+            {
+                id: 'step8',
+                instruction: 'Vérifiez votre architecture de réplication',
+                hint: 'Architecture: PgBouncer → Master (écritures) + 2 Slaves (lectures)',
+                autoAdvance: false
+            }
+        ]
+    },
+    {
+        id: 'scenario-etl-pipeline',
+        title: '15. Pipeline ETL avec Apache Airflow',
+        description: 'Construisez un pipeline de traitement de données complet.',
+        difficulty: 'Advanced',
+        icon: 'Activity',
+        steps: [
+            {
+                id: 'step1',
+                instruction: 'Créez un réseau etl-network',
+                cmd: 'docker network create etl-network',
+                validation: (state) => state.networks.some(n => n.name === 'etl-network')
+            },
+            {
+                id: 'step2',
+                instruction: 'Créez les volumes pour les données',
+                cmd: 'docker volume create airflow-dags && docker volume create postgres-data && docker volume create spark-data',
+                validation: (state) =>
+                    state.volumes.some(v => v.name === 'airflow-dags') &&
+                    state.volumes.some(v => v.name === 'postgres-data')
+            },
+            {
+                id: 'step3',
+                instruction: 'Lancez PostgreSQL (source de données)',
+                hint: 'PostgreSQL contient les données brutes à traiter',
+                cmd: 'docker run -d --name etl-source-db --net etl-network -v postgres-data:/var/lib/postgresql/data -e POSTGRES_PASSWORD=source123 postgres',
+                validation: (state) => state.containers.some(c => c.name === 'etl-source-db')
+            },
+            {
+                id: 'step4',
+                instruction: 'Lancez Apache Airflow (orchestrateur)',
+                hint: 'Airflow orchestre les tâches ETL via des DAGs',
+                cmd: 'docker run -d --name airflow --net etl-network -v airflow-dags:/opt/airflow/dags -p 8080:8080 -e POSTGRES_HOST=etl-source-db postgres',
+                validation: (state) => state.containers.some(c => c.name === 'airflow')
+            },
+            {
+                id: 'step5',
+                instruction: 'Lancez Apache Spark (traitement distribué)',
+                hint: 'Spark effectue les transformations lourdes sur les données',
+                cmd: 'docker run -d --name spark-master --net etl-network -p 7077:7077 -p 8081:8080 alpine',
+                validation: (state) => state.containers.some(c => c.name === 'spark-master')
+            },
+            {
+                id: 'step6',
+                instruction: 'Lancez un Spark Worker',
+                cmd: 'docker run -d --name spark-worker1 --net etl-network -e SPARK_MASTER=spark-master:7077 alpine',
+                validation: (state) => state.containers.some(c => c.name === 'spark-worker1')
+            },
+            {
+                id: 'step7',
+                instruction: 'Ajoutez Redis (cache pour les transformations)',
+                cmd: 'docker run -d --name etl-cache --net etl-network redis',
+                validation: (state) => state.containers.some(c => c.name === 'etl-cache')
+            },
+            {
+                id: 'step8',
+                instruction: 'Lancez PostgreSQL (data warehouse)',
+                hint: 'Le data warehouse stocke les données transformées',
+                cmd: 'docker run -d --name etl-warehouse --net etl-network -e POSTGRES_PASSWORD=warehouse123 postgres',
+                validation: (state) => state.containers.some(c => c.name === 'etl-warehouse')
+            },
+            {
+                id: 'step9',
+                instruction: 'Observez votre pipeline ETL complet',
+                hint: 'Flux: Source DB → Airflow → Spark → Cache → Warehouse',
+                autoAdvance: false
+            }
+        ]
+    },
+    {
+        id: 'scenario-event-driven',
+        title: '16. Architecture Event-Driven (CQRS)',
+        description: 'Implémentez une architecture événementielle avec Kafka et microservices.',
+        difficulty: 'Advanced',
+        icon: 'Server',
+        steps: [
+            {
+                id: 'step1',
+                instruction: 'Créez deux réseaux: frontend-net et backend-net',
+                cmd: 'docker network create event-frontend && docker network create event-backend',
+                validation: (state) =>
+                    state.networks.some(n => n.name === 'event-frontend') &&
+                    state.networks.some(n => n.name === 'event-backend')
+            },
+            {
+                id: 'step2',
+                instruction: 'Lancez Zookeeper (requis pour Kafka)',
+                hint: 'Zookeeper gère la coordination du cluster Kafka',
+                cmd: 'docker run -d --name zookeeper --net event-backend -e ZOOKEEPER_CLIENT_PORT=2181 alpine',
+                validation: (state) => state.containers.some(c => c.name === 'zookeeper')
+            },
+            {
+                id: 'step3',
+                instruction: 'Lancez Kafka (message broker)',
+                hint: 'Kafka gère les événements asynchrones entre services',
+                cmd: 'docker run -d --name kafka --net event-backend -p 9092:9092 -e KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181 -e KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092 alpine',
+                validation: (state) => state.containers.some(c => c.name === 'kafka')
+            },
+            {
+                id: 'step4',
+                instruction: 'Lancez le service Command (écritures)',
+                hint: 'Le service Command gère les commandes et publie des événements',
+                cmd: 'docker run -d --name command-service --net event-backend -e KAFKA_BOOTSTRAP_SERVERS=kafka:9092 node',
+                validation: (state) => state.containers.some(c => c.name === 'command-service')
+            },
+            {
+                id: 'step5',
+                instruction: 'Lancez la base Write (PostgreSQL)',
+                cmd: 'docker run -d --name write-db --net event-backend -e POSTGRES_PASSWORD=write123 postgres',
+                validation: (state) => state.containers.some(c => c.name === 'write-db')
+            },
+            {
+                id: 'step6',
+                instruction: 'Lancez le service Query (lectures)',
+                hint: 'Le service Query consomme les événements et construit les vues',
+                cmd: 'docker run -d --name query-service --net event-backend -e KAFKA_BROKER=kafka:9092 node',
+                validation: (state) => state.containers.some(c => c.name === 'query-service')
+            },
+            {
+                id: 'step7',
+                instruction: 'Lancez la base Read (MongoDB pour vues matérialisées)',
+                cmd: 'docker run -d --name read-db --net event-backend postgres',
+                validation: (state) => state.containers.some(c => c.name === 'read-db')
+            },
+            {
+                id: 'step8',
+                instruction: 'Connectez le Command Service au frontend',
+                cmd: 'docker network connect event-frontend command-service',
+                validation: (state) => {
+                    const cmd = state.containers.find(c => c.name === 'command-service');
+                    return cmd &&
+                        cmd.networks.includes('event-frontend') &&
+                        cmd.networks.includes('event-backend');
+                }
+            },
+            {
+                id: 'step9',
+                instruction: 'Connectez le Query Service au frontend',
+                cmd: 'docker network connect event-frontend query-service',
+                validation: (state) => {
+                    const query = state.containers.find(c => c.name === 'query-service');
+                    return query &&
+                        query.networks.includes('event-frontend') &&
+                        query.networks.includes('event-backend');
+                }
+            },
+            {
+                id: 'step10',
+                instruction: 'Lancez l\'API Gateway sur le frontend',
+                cmd: 'docker run -d --name api-gateway --net event-frontend -p 8000:80 nginx',
+                validation: (state) => state.containers.some(c => c.name === 'api-gateway')
+            },
+            {
+                id: 'step11',
+                instruction: 'Admirez votre architecture CQRS/Event-Sourcing',
+                hint: 'Une architecture complexe mais puissante pour la scalabilité',
+                autoAdvance: false
+            }
+        ]
+    },
+    {
+        id: 'scenario-observability',
+        title: '17. Stack d\'Observabilité Complète',
+        description: 'Déployez Prometheus, Grafana et Loki pour monitorer vos applications.',
+        difficulty: 'Advanced',
+        icon: 'Activity',
+        steps: [
+            {
+                id: 'step1',
+                instruction: 'Créez un réseau monitoring',
+                cmd: 'docker network create monitoring',
+                validation: (state) => state.networks.some(n => n.name === 'monitoring')
+            },
+            {
+                id: 'step2',
+                instruction: 'Créez les volumes de persistence',
+                cmd: 'docker volume create prometheus-data && docker volume create grafana-data && docker volume create loki-data',
+                validation: (state) =>
+                    state.volumes.some(v => v.name === 'prometheus-data') &&
+                    state.volumes.some(v => v.name === 'grafana-data')
+            },
+            {
+                id: 'step3',
+                instruction: 'Lancez Prometheus (métriques)',
+                hint: 'Prometheus collecte et stocke les métriques time-series',
+                cmd: 'docker run -d --name prometheus --net monitoring -v prometheus-data:/prometheus -p 9090:9090 alpine',
+                validation: (state) => state.containers.some(c => c.name === 'prometheus')
+            },
+            {
+                id: 'step4',
+                instruction: 'Lancez Grafana (visualisation)',
+                hint: 'Grafana crée des dashboards à partir des données Prometheus',
+                cmd: 'docker run -d --name grafana --net monitoring -v grafana-data:/var/lib/grafana -p 3000:3000 -e PROMETHEUS_URL=http://prometheus:9090 alpine',
+                validation: (state) => state.containers.some(c => c.name === 'grafana')
+            },
+            {
+                id: 'step5',
+                instruction: 'Lancez Loki (logs)',
+                hint: 'Loki agrège les logs de tous les conteneurs',
+                cmd: 'docker run -d --name loki --net monitoring -v loki-data:/loki -p 3100:3100 alpine',
+                validation: (state) => state.containers.some(c => c.name === 'loki')
+            },
+            {
+                id: 'step6',
+                instruction: 'Lancez cAdvisor (métriques conteneurs)',
+                hint: 'cAdvisor expose les métriques CPU/RAM de chaque conteneur',
+                cmd: 'docker run -d --name cadvisor --net monitoring -p 8080:8080 alpine',
+                validation: (state) => state.containers.some(c => c.name === 'cadvisor')
+            },
+            {
+                id: 'step7',
+                instruction: 'Lancez Node Exporter (métriques système)',
+                cmd: 'docker run -d --name node-exporter --net monitoring -p 9100:9100 alpine',
+                validation: (state) => state.containers.some(c => c.name === 'node-exporter')
+            },
+            {
+                id: 'step8',
+                instruction: 'Lancez AlertManager (alertes)',
+                hint: 'AlertManager envoie des notifications quand des seuils sont dépassés',
+                cmd: 'docker run -d --name alertmanager --net monitoring -p 9093:9093 alpine',
+                validation: (state) => state.containers.some(c => c.name === 'alertmanager')
+            },
+            {
+                id: 'step9',
+                instruction: 'Observez votre stack de monitoring complète',
+                hint: 'Flux: Apps → Prometheus/Loki → Grafana + AlertManager',
                 autoAdvance: false
             }
         ]

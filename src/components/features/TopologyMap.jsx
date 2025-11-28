@@ -1,12 +1,124 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Network, Box } from 'lucide-react';
 import Tooltip from '../common/Tooltip';
+import { detectConnections } from '../../utils/connectionDetector';
 
 const TopologyMap = ({ networks, containers, selectedItem, setSelectedItem, setShowInspector }) => {
     const [hoveredContainer, setHoveredContainer] = useState(null);
+    const [containerPositions, setContainerPositions] = useState({});
+    const [showConnections, setShowConnections] = useState(true);
+    const containerRefs = useRef({});
+
+    // Calcule les positions des conteneurs pour dessiner les connexions
+    useEffect(() => {
+        const positions = {};
+        Object.keys(containerRefs.current).forEach(id => {
+            const el = containerRefs.current[id];
+            if (el) {
+                const rect = el.getBoundingClientRect();
+                const parent = el.closest('.topology-map');
+                if (parent) {
+                    const parentRect = parent.getBoundingClientRect();
+                    positions[id] = {
+                        x: rect.left - parentRect.left + el.closest('.topology-map').scrollLeft,
+                        y: rect.top - parentRect.top + el.closest('.topology-map').scrollTop,
+                        width: rect.width,
+                        height: rect.height
+                    };
+                }
+            }
+        });
+        setContainerPositions(positions);
+    }, [containers, networks]);
+
+    // Détecte les connexions entre conteneurs
+    const connections = detectConnections(containers);
 
     return (
-        <div className="relative h-full w-full bg-transparent overflow-hidden flex flex-wrap content-start p-8 gap-8 overflow-y-auto topology-map">
+        <div className="relative h-full w-full bg-transparent overflow-hidden overflow-y-auto topology-map">
+            {/* Bouton toggle connexions */}
+            <button
+                onClick={() => setShowConnections(!showConnections)}
+                className="absolute top-4 right-4 z-10 bg-slate-800/90 hover:bg-slate-700 border border-white/10 rounded-lg px-3 py-2 text-xs font-medium text-white transition-all"
+                title={showConnections ? 'Masquer les connexions' : 'Afficher les connexions'}
+            >
+                {showConnections ? '🔗 Connexions ON' : '🔗 Connexions OFF'}
+            </button>
+
+            {/* SVG pour dessiner les connexions */}
+            {showConnections && (
+                <svg className="absolute inset-0 pointer-events-none z-0" style={{ width: '100%', height: '100%' }}>
+                    {connections.map((conn, idx) => {
+                        const fromPos = containerPositions[conn.from];
+                        const toPos = containerPositions[conn.to];
+
+                        if (!fromPos || !toPos) return null;
+
+                        const x1 = fromPos.x + fromPos.width / 2;
+                        const y1 = fromPos.y + fromPos.height / 2;
+                        const x2 = toPos.x + toPos.width / 2;
+                        const y2 = toPos.y + toPos.height / 2;
+
+                        // Calcul du point milieu pour le label
+                        const midX = (x1 + x2) / 2;
+                        const midY = (y1 + y2) / 2;
+
+                        return (
+                            <g key={idx}>
+                                {/* Ligne de connexion */}
+                                <line
+                                    x1={x1}
+                                    y1={y1}
+                                    x2={x2}
+                                    y2={y2}
+                                    stroke={conn.color}
+                                    strokeWidth="2"
+                                    strokeDasharray="5,5"
+                                    opacity="0.6"
+                                    markerEnd="url(#arrowhead)"
+                                />
+                                {/* Label au milieu */}
+                                <g>
+                                    <rect
+                                        x={midX - 30}
+                                        y={midY - 10}
+                                        width="60"
+                                        height="20"
+                                        fill="#1e293b"
+                                        rx="4"
+                                        opacity="0.9"
+                                    />
+                                    <text
+                                        x={midX}
+                                        y={midY + 5}
+                                        textAnchor="middle"
+                                        fill={conn.color}
+                                        fontSize="10"
+                                        fontWeight="bold"
+                                    >
+                                        {conn.label}
+                                    </text>
+                                </g>
+                            </g>
+                        );
+                    })}
+                    {/* Définition de la flèche */}
+                    <defs>
+                        <marker
+                            id="arrowhead"
+                            markerWidth="10"
+                            markerHeight="10"
+                            refX="9"
+                            refY="3"
+                            orient="auto"
+                        >
+                            <polygon points="0 0, 10 3, 0 6" fill="#60a5fa" />
+                        </marker>
+                    </defs>
+                </svg>
+            )}
+
+            <div className="relative flex flex-wrap content-start p-8 gap-8 z-10">
             {networks.map(net => {
                 const netContainers = containers.filter(c => c.networks.includes(net.name));
                 return (
@@ -46,6 +158,7 @@ const TopologyMap = ({ networks, containers, selectedItem, setSelectedItem, setS
                                     position="top"
                                 >
                                     <div
+                                        ref={el => containerRefs.current[c.id] = el}
                                         onClick={() => { setSelectedItem(c.id); setShowInspector(true); }}
                                         onMouseEnter={() => setHoveredContainer(c.id)}
                                         onMouseLeave={() => setHoveredContainer(null)}
@@ -66,7 +179,16 @@ const TopologyMap = ({ networks, containers, selectedItem, setSelectedItem, setS
                     </div>
                 )
             })}
-            {/* Welcome message removed */}
+            {/* Info sur les connexions */}
+            {showConnections && connections.length > 0 && (
+                <div className="absolute bottom-4 left-4 bg-slate-800/90 border border-white/10 rounded-lg p-3 text-xs">
+                    <div className="text-white font-semibold mb-1">🔗 Connexions détectées : {connections.length}</div>
+                    <div className="text-slate-400 text-[10px]">
+                        Les lignes montrent les communications entre conteneurs
+                    </div>
+                </div>
+            )}
+            </div>
         </div>
     );
 };
